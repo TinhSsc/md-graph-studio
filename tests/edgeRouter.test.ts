@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getCanvasEdgeRouterScript } from '../src/webview/canvasEdgeRouter';
 import { getCanvasEdgeSegmentsScript } from '../src/webview/canvasEdgeSegments';
+import { getCanvasGeometryScript } from '../src/webview/canvasGeometry';
+import { getCanvasEdgeEndpointsScript } from '../src/webview/canvasEdgeEndpoints';
 
 type Point = { x: number; y: number };
 type Box = { left: number; right: number; top: number; bottom: number };
@@ -12,6 +14,15 @@ const router = new Function(`${getCanvasEdgeRouterScript()}${getCanvasEdgeSegmen
   normalizedEdgeGuide: (edge: { endpoints: { guide?: { axis: 'x' | 'y'; value: number } } }, geometry: { p1: Point; p2: Point }) => { axis: 'x' | 'y'; value: number } | null;
   roundedOrthogonalPath: (points: Point[]) => string;
 };
+
+if (typeof (globalThis as unknown as { CSS?: unknown }).CSS === 'undefined') {
+  (globalThis as unknown as { CSS: { escape: (s: string) => string } }).CSS = { escape: (s: string) => s };
+}
+if (typeof (globalThis as unknown as { document?: unknown }).document === 'undefined') {
+  (globalThis as unknown as { document: { querySelector: () => null } }).document = { querySelector: () => null };
+}
+
+const geometryHelper = new Function('findNode', 'graph', `${getCanvasEdgeRouterScript()}${getCanvasEdgeEndpointsScript()}${getCanvasGeometryScript()}; return { calculateEdgeGeometry, endpointForNode };`);
 
 function isOrthogonal(points: Point[]): boolean {
   return points.slice(1).every((point, index) => point.x === points[index].x || point.y === points[index].y);
@@ -69,5 +80,38 @@ describe('orthogonal edge router', () => {
     router.calculateOrthogonalRoute(source, { point: { x: -120, y: 100 }, direction: null }, []);
     const repeated = router.calculateOrthogonalRoute(source, { point: { x: 180, y: -90 }, direction: null }, []);
     expect(repeated).toEqual(first);
+  });
+
+  it('calculateEdgeGeometry falls back to fromPort and toPort positions when endpoints are undefined', () => {
+    const nodes = [
+      { id: 'nodeA', x: 0, y: 0, width: 100, height: 60 },
+      { id: 'nodeB', x: 300, y: 0, width: 100, height: 60 },
+    ];
+    const findNode = (id: string) => nodes.find((n) => n.id === id);
+    const { calculateEdgeGeometry } = geometryHelper(findNode, { nodes });
+
+    const edgeWithPorts = {
+      id: 'nodeA>nodeB#0',
+      source: 'nodeA',
+      target: 'nodeB',
+      fromPort: 'right',
+      toPort: 'left',
+    };
+    const geom = calculateEdgeGeometry(edgeWithPorts);
+    expect(geom).toBeDefined();
+    // nodeA right port: x = 0 + 100 = 100, y = 0 + 30 = 30
+    expect(geom.p1).toEqual({ x: 100, y: 30 });
+    // nodeB left port: x = 300, y = 0 + 30 = 30
+    expect(geom.p2).toEqual({ x: 300, y: 30 });
+  });
+
+  it('endpointForNode snaps to middle 0.5 when cursor is near port center', () => {
+    const { endpointForNode } = geometryHelper(() => null, { nodes: [] });
+
+    const node = { id: 'test', x: 100, y: 100, width: 200, height: 100 };
+    // Near the left edge (x=101), slightly below middle (y=155 vs 150)
+    const ep = endpointForNode({ x: 101, y: 155 }, node);
+    expect(ep.xRatio).toBe(0);
+    expect(ep.yRatio).toBe(0.5);
   });
 });

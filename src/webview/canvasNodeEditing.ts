@@ -1,50 +1,206 @@
 export function getCanvasNodeEditingScript(): string {
   return `
+    function startInlineTaskEdit(node, taskElement) {
+      if (activeNodeEditor) activeNodeEditor.finish();
+      const taskIndex = parseInt(taskElement.dataset.taskIndex, 10);
+      if (isNaN(taskIndex)) return;
+
+      const originalText = taskElement.innerText.trim();
+      let finished = false;
+
+      taskElement.contentEditable = 'true';
+      taskElement.spellcheck = true;
+      taskElement.setAttribute('role', 'textbox');
+      taskElement.onpointerdown = event => event.stopPropagation();
+      taskElement.onclick = event => event.stopPropagation();
+      taskElement.ondblclick = event => event.stopPropagation();
+      taskElement.focus();
+
+      const range = document.createRange();
+      range.selectNodeContents(taskElement);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+
+      const cleanup = () => {
+        taskElement.contentEditable = 'false';
+        taskElement.removeAttribute('role');
+        taskElement.onpointerdown = null;
+        taskElement.onclick = null;
+        taskElement.ondblclick = null;
+        taskElement.onkeydown = null;
+        taskElement.onblur = null;
+        activeNodeEditor = null;
+      };
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        const newText = taskElement.innerText.replace(/[\\r\\n]+/g, ' ').trim();
+        cleanup();
+        if (newText && newText !== originalText) {
+          vscode.postMessage({
+            type: 'updateTaskText',
+            id: node.id,
+            taskIndex: taskIndex,
+            text: newText
+          });
+        } else {
+          taskElement.innerText = originalText;
+        }
+      };
+
+      const cancel = () => {
+        if (finished) return;
+        finished = true;
+        taskElement.innerText = originalText;
+        cleanup();
+      };
+
+      taskElement.onkeydown = event => {
+        event.stopPropagation();
+        if (event.isComposing) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancel();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          finish();
+        }
+      };
+
+      taskElement.onblur = () => {
+        finish();
+      };
+
+      activeNodeEditor = { finish, cancel };
+    }
+
+    function startInlineBlockEdit(node, target) {
+      if (activeNodeEditor) activeNodeEditor.finish();
+      const blockKind = target.dataset.editKind;
+      const blockIndex = parseInt(target.dataset.editIndex, 10);
+      if (!blockKind || isNaN(blockIndex)) return;
+      const originalHtml = target.innerHTML;
+      const originalText = decodeURIComponent(target.dataset.raw || '');
+      const multiline = blockKind === 'code';
+      let finished = false;
+
+      target.textContent = originalText;
+      target.contentEditable = 'true';
+      target.spellcheck = blockKind !== 'code';
+      target.setAttribute('role', 'textbox');
+      target.setAttribute('aria-multiline', multiline ? 'true' : 'false');
+      target.onpointerdown = event => event.stopPropagation();
+      target.onclick = event => event.stopPropagation();
+      target.ondblclick = event => event.stopPropagation();
+
+      const cleanup = () => {
+        target.contentEditable = 'false';
+        target.removeAttribute('role');
+        target.removeAttribute('aria-multiline');
+        target.onpointerdown = null;
+        target.onclick = null;
+        target.ondblclick = null;
+        target.onkeydown = null;
+        target.onblur = null;
+        activeNodeEditor = null;
+      };
+      const cancel = () => {
+        if (finished) return;
+        finished = true;
+        target.innerHTML = originalHtml;
+        cleanup();
+      };
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        const text = multiline ? target.innerText.replace(/\\r/g, '') : target.innerText.replace(/[\\r\\n]+/g, ' ').trim();
+        cleanup();
+        if (text !== originalText) vscode.postMessage({ type: 'updateMarkdownBlock', id: node.id, blockKind, blockIndex, text });
+        else target.innerHTML = originalHtml;
+      };
+
+      target.onkeydown = event => {
+        event.stopPropagation();
+        if (event.isComposing) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancel();
+        } else if (event.key === 'Enter' && (!multiline || event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          finish();
+        }
+      };
+      target.onblur = finish;
+      activeNodeEditor = { finish, cancel };
+      target.focus();
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+
     function startInlineNodeEdit(node, element, clickedTarget) {
       if (activeNodeEditor) activeNodeEditor.finish();
 
-      const titleElement = element.querySelector('.node-title');
-      if (!titleElement) return;
-      let contentElement = element.querySelector('.node-content');
-      const createdContent = !contentElement;
-      if (!contentElement) {
-        contentElement = document.createElement('div');
-        contentElement.className = 'node-content';
-        element.insertBefore(contentElement, element.querySelector('.port'));
+      const taskTarget = clickedTarget ? clickedTarget.closest('.task-text') : null;
+      if (taskTarget) {
+        startInlineTaskEdit(node, taskTarget);
+        return;
       }
 
+      const editableBlock = clickedTarget ? clickedTarget.closest('[data-edit-kind]') : null;
+      if (editableBlock) {
+        startInlineBlockEdit(node, editableBlock);
+        return;
+      }
+
+      if (clickedTarget && clickedTarget.closest('.node-content')) {
+        if (typeof inspectNode === 'function') {
+          inspectNode(node.id);
+          const editorRight = document.querySelector('#editor-right');
+          if (editorRight) editorRight.classList.remove('collapsed');
+          const ta = document.querySelector('#inp-content');
+          if (ta) ta.focus();
+        }
+        return;
+      }
+
+      const titleElement = element.querySelector('.node-title');
+      if (!titleElement) return;
+
       const originalTitle = node.title;
-      const originalContent = (node.content || '').trimEnd();
       let finished = false;
+
       const handleFocusout = () => {
         setTimeout(() => {
           if (!finished && !element.contains(document.activeElement)) finish();
         }, 0);
       };
+
       element.classList.add('editing');
-      [titleElement, contentElement].forEach(editable => {
-        editable.contentEditable = 'true';
-        editable.spellcheck = true;
-        editable.setAttribute('role', 'textbox');
-        editable.onpointerdown = event => event.stopPropagation();
-        editable.onclick = event => event.stopPropagation();
-        editable.ondblclick = event => event.stopPropagation();
-      });
-      contentElement.setAttribute('aria-multiline', 'true');
+      titleElement.contentEditable = 'true';
+      titleElement.spellcheck = true;
+      titleElement.setAttribute('role', 'textbox');
+      titleElement.onpointerdown = event => event.stopPropagation();
+      titleElement.onclick = event => event.stopPropagation();
+      titleElement.ondblclick = event => event.stopPropagation();
 
       const cleanup = () => {
-        [titleElement, contentElement].forEach(editable => {
-          editable.contentEditable = 'false';
-          editable.removeAttribute('role');
-          editable.removeAttribute('aria-multiline');
-          editable.onpointerdown = null;
-          editable.onclick = null;
-          editable.ondblclick = null;
-          editable.onkeydown = null;
-        });
+        titleElement.contentEditable = 'false';
+        titleElement.removeAttribute('role');
+        titleElement.onpointerdown = null;
+        titleElement.onclick = null;
+        titleElement.ondblclick = null;
+        titleElement.onkeydown = null;
         element.removeEventListener('focusout', handleFocusout);
         element.classList.remove('editing');
-        if (createdContent && !contentElement.textContent.trim()) contentElement.remove();
         activeNodeEditor = null;
       };
 
@@ -52,38 +208,36 @@ export function getCanvasNodeEditingScript(): string {
         if (finished) return;
         finished = true;
         const title = titleElement.innerText.replace(/[\\r\\n]+/g, ' ').trim() || originalTitle;
-        const content = contentElement.innerText.replace(/\\r/g, '').trimEnd();
         titleElement.textContent = title;
         cleanup();
         if (title !== originalTitle) {
           selectedNodeIds.delete(node.id);
           selectedNodeIds.add(title);
-        }
-        if (title !== originalTitle || content !== originalContent) {
-          vscode.postMessage({ type: 'updateNode', id: node.id, title, content, shape: node.shape, color: node.color });
+          vscode.postMessage({ type: 'updateNode', id: node.id, title, content: node.content, shape: node.shape, color: node.color });
         }
       };
 
       const handleKeydown = event => {
+        event.stopPropagation();
         if (event.isComposing) return;
-        if (event.key === 'Escape' || (event.key === 'Enter' && !(event.shiftKey && event.currentTarget === contentElement))) {
+        if (event.key === 'Escape' || event.key === 'Enter') {
           event.preventDefault();
           finish();
         }
       };
+
       titleElement.onkeydown = handleKeydown;
-      contentElement.onkeydown = handleKeydown;
       element.addEventListener('focusout', handleFocusout);
 
       activeNodeEditor = { finish };
-      const focusElement = clickedTarget && clickedTarget.closest('.node-content') ? contentElement : titleElement;
-      focusElement.focus();
+      titleElement.focus();
       const range = document.createRange();
-      range.selectNodeContents(focusElement);
-      if (focusElement === contentElement) range.collapse(false);
+      range.selectNodeContents(titleElement);
       const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     }
   `;
 }

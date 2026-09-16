@@ -1,0 +1,178 @@
+/**
+ * Quản lý hiển thị thanh công cụ nổi thao tác node, định vị theo node được chọn và điều hướng các hành động.
+ */
+export function getCanvasActionBarScript(): string {
+  return `
+    const actionBar = document.querySelector('#node-action-bar');
+    const imageMenu = document.querySelector('#action-image-menu');
+    let actionBarNodeId = null;
+    let actionBarSource = 'selection';
+    let hoverTimer = null;
+    let hoverCandidate = null;
+
+    function actionBarButtons() {
+      return actionBar ? Array.from(actionBar.querySelectorAll('button[data-action]')) : [];
+    }
+
+    function hideNodeActionBar() {
+      actionBarNodeId = null;
+      if (actionBar) actionBar.style.display = 'none';
+    }
+
+    function isActionBarVisible() {
+      return Boolean(actionBar) && actionBar.style.display !== 'none' && actionBarNodeId;
+    }
+
+    function computeAnchoredPosition(anchorRect, selfRect, containerRect, gap) {
+      const fitsAbove = anchorRect.top - selfRect.height - gap >= containerRect.top + 8;
+      const fitsBelow = anchorRect.bottom + selfRect.height + gap <= containerRect.bottom - 8;
+      let top = fitsAbove ? anchorRect.top - selfRect.height - gap
+        : fitsBelow ? anchorRect.bottom + gap
+        : Math.max(containerRect.top + 8, containerRect.bottom - selfRect.height - 8);
+      let left = anchorRect.left + anchorRect.width / 2 - selfRect.width / 2;
+      left = Math.max(containerRect.left + 8, Math.min(containerRect.right - selfRect.width - 8, left));
+      return { top, left };
+    }
+
+    function placeFloatingPanel(panel, anchorRect, gap) {
+      const containerRect = document.querySelector('#canvas-container').getBoundingClientRect();
+      const prevDisplay = panel.style.display;
+      const prevVisibility = panel.style.visibility;
+      if (prevDisplay === 'none' || !prevDisplay) {
+        panel.style.visibility = 'hidden';
+        panel.style.display = 'flex';
+      }
+      const size = { width: panel.offsetWidth || 320, height: panel.offsetHeight || 38 };
+      const position = computeAnchoredPosition(anchorRect, size, containerRect, gap);
+      panel.style.left = Math.round(position.left) + 'px';
+      panel.style.top = Math.round(position.top) + 'px';
+      panel.style.visibility = prevVisibility;
+      panel.style.display = prevDisplay === 'none' ? 'flex' : prevDisplay;
+    }
+
+    function updateNodeActionBar() {
+      if (!actionBar) return;
+      if (activeNodeEditor || isPopoverOpen()) { hideNodeActionBar(); return; }
+
+      let nodeId = null;
+      if (selectedNodeIds.size === 1) nodeId = Array.from(selectedNodeIds)[0];
+      else if (actionBarSource === 'hover' && hoverCandidate && selectedNodeIds.size === 0) nodeId = hoverCandidate;
+      else if (actionBarSource === 'hover' && hoverCandidate && selectedNodeIds.size > 0 && hoverCandidate === actionBarNodeId) nodeId = hoverCandidate;
+      if (!nodeId) { hideNodeActionBar(); return; }
+
+      const nodeEl = document.querySelector('#node-' + CSS.escape(nodeId));
+      const node = findNode(nodeId);
+      if (!nodeEl || !node) { hideNodeActionBar(); return; }
+
+      actionBar.style.display = 'flex';
+      actionBar.dataset.nodeId = nodeId;
+      actionBarButtons().forEach((button) => {
+        button.disabled = Boolean(node.locked);
+        button.setAttribute('aria-disabled', node.locked ? 'true' : 'false');
+      });
+      if (imageMenu) {
+        imageMenu.classList.remove('open');
+        const imageButton = actionBar.querySelector('button[data-action="image"]');
+        if (imageButton) imageButton.setAttribute('aria-expanded', 'false');
+      }
+      actionBarNodeId = nodeId;
+      placeFloatingPanel(actionBar, nodeEl.getBoundingClientRect(), 8);
+    }
+
+    function requestHoverActionBar(nodeId) {
+      hoverCandidate = nodeId;
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => {
+        actionBarSource = 'hover';
+        updateNodeActionBar();
+      }, 250);
+    }
+
+    function cancelHoverActionBar(target) {
+      clearTimeout(hoverTimer);
+      const overBar = target && ((actionBar && (target === actionBar || actionBar.contains(target))) || (imageMenu && (target === imageMenu || imageMenu.contains(target))));
+      const overNode = target && typeof target.closest === 'function' && target.closest('.node');
+      if (!overBar && !overNode) hoverCandidate = null;
+      if (!overBar && actionBarSource === 'hover' && !overNode) { hideNodeActionBar(); }
+    }
+
+    document.addEventListener('pointerover', (event) => {
+      const nodeEl = event.target && event.target.closest ? event.target.closest('.node') : null;
+      if (nodeEl && !nodeEl.classList.contains('ghost')) {
+        const nodeId = nodeEl.id.replace('node-', '');
+        if (nodeId !== actionBarNodeId) requestHoverActionBar(nodeId);
+        return;
+      }
+      if (event.target && actionBar && (event.target === actionBar || actionBar.contains(event.target))) return;
+      if (event.target && imageMenu && (event.target === imageMenu || imageMenu.contains(event.target))) return;
+      cancelHoverActionBar(event.target);
+    }, true);
+
+    if (actionBar) {
+      actionBar.addEventListener('click', (event) => {
+        const button = event.target && event.target.closest ? event.target.closest('button[data-action]') : null;
+        if (!button || button.disabled || !actionBarNodeId) return;
+        const action = button.getAttribute('data-action');
+        const nodeId = actionBarNodeId;
+        if (action === 'image') {
+          toggleImageSubmenu();
+        } else if (action === 'link' || action === 'code' || action === 'tag' || action === 'delete') {
+          openPopover(action, nodeId);
+        } else if (action === 'task') {
+          dispatchContentAction('task', { kind: 'task', text: 'New task' }, nodeId);
+        } else if (action === 'quote') {
+          dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId);
+        } else if (action === 'edit') {
+          const node = findNode(nodeId);
+          const nodeEl = document.querySelector('#node-' + CSS.escape(nodeId));
+          if (node && nodeEl) startInlineNodeEdit(node, nodeEl);
+        }
+      });
+    }
+
+    if (imageMenu) {
+      imageMenu.addEventListener('click', (event) => {
+        const button = event.target && event.target.closest ? event.target.closest('button[data-subaction]') : null;
+        if (!button || !actionBarNodeId) return;
+        const subaction = button.getAttribute('data-subaction');
+        const nodeId = actionBarNodeId;
+        closeImageSubmenu();
+        if (subaction === 'image-workspace') {
+          vscode.postMessage({ type: 'requestPickImage', id: nodeId });
+        } else if (subaction === 'image-url') {
+          openPopover('imageUrl', nodeId);
+        }
+      });
+    }
+
+    const baseHighlightSelection = highlightSelection;
+    highlightSelection = function() {
+      baseHighlightSelection();
+      if (selectedNodeIds.size === 1) {
+        actionBarSource = 'selection';
+        updateNodeActionBar();
+      } else if (selectedNodeIds.size === 0 && actionBarSource === 'hover') {
+        updateNodeActionBar();
+      } else if (selectedNodeIds.size > 1) {
+        hideNodeActionBar();
+      }
+    };
+
+    const baseView = view;
+    view = function() {
+      baseView();
+      if (isActionBarVisible()) {
+        const nodeEl = actionBarNodeId ? document.querySelector('#node-' + CSS.escape(actionBarNodeId)) : null;
+        if (nodeEl) placeFloatingPanel(actionBar, nodeEl.getBoundingClientRect(), 8);
+      }
+      if (isPopoverOpen()) repositionPopover();
+    };
+
+    const baseRender = render;
+    render = function() {
+      baseRender();
+      if (selectedNodeIds.size === 1) { actionBarSource = 'selection'; }
+      updateNodeActionBar();
+    };
+  `;
+}

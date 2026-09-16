@@ -1,31 +1,28 @@
 import type { CanvasEdgeEndpoint, CanvasMeta, GraphDocument, GraphNode } from '../model/graphTypes';
 import { uniqueNodeTitle } from '../model/nodeIdentity';
 import { parseMarkdownGraph } from './MarkdownGraphParser';
-import { applyTextEdits, createNodeSection, renameWikiLinkTargets, updateCanvasMeta, updateNodeSection } from './MarkdownGraphSerializer';
+import { materializeGhostNode } from './NodeContentActions';
+import { applyTextEdits, renameWikiLinkTargets, updateCanvasMeta, updateNodeSection } from './MarkdownGraphSerializer';
 
 type NodeChanges = Pick<GraphNode, 'title' | 'content' | 'shape' | 'color'>;
 
 export function updateNodeDocument(text: string, graph: GraphDocument, node: GraphNode, changes: NodeChanges): string {
-  const title = uniqueNodeTitle(changes.title, node.id, graph.nodes.map((item) => item.id));
+  const hasExplicitId = node.id !== node.title;
+  const title = hasExplicitId
+    ? changes.title.trim()
+    : uniqueNodeTitle(changes.title, node.id, graph.nodes.map((item) => item.id));
   const updatedNode = { ...node, ...changes, title };
   let updatedText = node.ghost
-    ? insertGhostSection(text, updatedNode)
+    ? materializeGhostNode(text, updatedNode)
     : applyTextEdits(text, [updateNodeSection(text, node, updatedNode)]);
 
-  if (title === node.id) return updatedText;
+  if (hasExplicitId || title === node.id) return updatedText;
   updatedText = renameWikiLinkTargets(updatedText, node.id, title);
   if (!graph.meta) return updatedText;
 
   const nextGraph = parseMarkdownGraph(updatedText);
   const meta = remapMetadata(graph, nextGraph, node.id, title);
   return applyTextEdits(updatedText, [updateCanvasMeta(updatedText, meta)]);
-}
-
-function insertGhostSection(text: string, node: GraphNode): string {
-  const metaStart = text.search(/\n?<!--\s*canvas-meta\s*\n/);
-  const position = metaStart === -1 ? text.length : metaStart;
-  const section = createNodeSection({ ...node, collapsed: false, locked: false });
-  return applyTextEdits(text, [{ start: position, end: position, text: `\n${section}` }]);
 }
 
 function remapMetadata(graph: GraphDocument, nextGraph: GraphDocument, currentId: string, nextId: string): CanvasMeta {

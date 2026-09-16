@@ -19,6 +19,7 @@ export interface SourceRange { start: number; end: number; }
 export interface GraphNode {
   id: string;
   title: string;
+  explicitId?: string;
   content: string;
   shape: NodeShape;
   color: string;
@@ -26,6 +27,7 @@ export interface GraphNode {
   y: number;
   width: number;
   height: number;
+  layer?: number;
   collapsed: boolean;
   locked: boolean;
   ghost: boolean;
@@ -45,7 +47,15 @@ export interface GraphEdge {
   sourceRange: SourceRange;
   endpoints?: CanvasEdgeEndpoints;
 }
-export interface CanvasNodeMeta { x: number; y: number; width?: number; height?: number; }
+export interface CanvasNodeMeta {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  collapsed?: boolean;
+  locked?: boolean;
+  layer?: number;
+}
 export type CanvasEdgeEndpoint =
   | { kind: 'node'; nodeId: string; xRatio: number; yRatio: number }
   | { kind: 'free'; x: number; y: number };
@@ -62,6 +72,7 @@ export interface GraphGroup {
 export interface Viewport { x: number; y: number; zoom: number; }
 export interface CanvasMeta {
   version: number;
+  revision?: number;
   nodes: Record<string, CanvasNodeMeta>;
   groups: Record<string, GraphGroup>;
   edges?: Record<string, CanvasEdgeEndpoints>;

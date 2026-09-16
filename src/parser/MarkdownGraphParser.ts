@@ -6,10 +6,17 @@ import { uniqueNodeTitle } from '../model/nodeIdentity';
 
 const nodeComment = /^<!--\s*graph-node:\s*(.*?)\s*-->\s*$/;
 const edgeComment = /<!--\s*graph-edge:\s*(.*?)\s*-->/;
-const wikiLink = /\[\[([^\]|#]+)(?:\|([^\]]*))?\]\]/g;
+const wikiLink = /\[\[(?:#)?([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 const canvasComment = /\n?<!--\s*canvas-meta\s*\n([\s\S]*?)\n?-->\s*$/;
 
 type Attributes = Record<string, string>;
+
+interface HeadingScan {
+  start: number;
+  lineEnd: number;
+  title: string;
+  explicitId?: string;
+}
 
 export function normalizeNodeId(title: string): string {
   return title.trim().replace(/\s+/g, ' ');
@@ -26,30 +33,54 @@ export function parseMarkdownGraph(text: string): GraphDocument {
     const end = headings[index + 1]?.start ?? body.length;
     const section = body.slice(heading.lineEnd, end);
     const { attributes, content } = parseNodeBody(section, heading.lineEnd, diagnostics);
+    const explicitId = heading.explicitId || attributes.id;
+    const id = explicitId || normalizeNodeId(heading.title);
     return {
-      id: normalizeNodeId(heading.title), title: heading.title, content,
+      id, title: heading.title, explicitId, content,
       shape: enumValue(attributes.shape, nodeShapes, 'rounded-rectangle', diagnostics, heading.start, 'shape'),
       color: attributes.color ?? 'gray',
       x: 0, y: 0, width: defaultNodeWidth, height: defaultNodeHeight,
+      layer: index,
       collapsed: booleanValue(attributes.collapsed, false, diagnostics, heading.start, 'collapsed'),
       locked: booleanValue(attributes.locked, false, diagnostics, heading.start, 'locked'),
       ghost: false, sourceRange: { start: heading.start, end },
     };
   });
   const titles = new Set<string>();
+  const nodeById = new Map<string, GraphNode>();
+  const nodeByTitle = new Map<string, GraphNode>();
   for (const node of nodes) {
     if (titles.has(node.id)) {
-      diagnostics.push({ message: `Duplicate node title: ${node.title}`, offset: node.sourceRange?.start });
+      const msg = node.explicitId ? `Duplicate node ID: ${node.id}` : `Duplicate node title: ${node.title}`;
+      diagnostics.push({ message: msg, offset: node.sourceRange?.start });
       node.id = uniqueNodeTitle(node.id, '', titles);
-      node.title = node.id;
     }
     titles.add(node.id);
+    nodeById.set(node.id, node);
+    if (!nodeByTitle.has(node.title)) {
+      nodeByTitle.set(node.title, node);
+    }
   }
-  const edges = nodes.flatMap((node) => parseEdges(node, body, diagnostics, meta?.edges));
+  const edges = nodes.flatMap((node) => parseEdges(node, body, diagnostics, meta?.edges, nodeById, nodeByTitle));
   for (const edge of edges) {
-    if (!titles.has(edge.target)) {
-      nodes.push({ id: edge.target, title: edge.target, content: '', shape: 'rounded-rectangle', color: 'gray', x: 0, y: 0, width: defaultNodeWidth, height: defaultNodeHeight, collapsed: false, locked: false, ghost: true });
-      titles.add(edge.target);
+    if (!nodeById.has(edge.target)) {
+      const ghost: GraphNode = {
+        id: edge.target,
+        title: edge.target,
+        content: '',
+        shape: 'rounded-rectangle',
+        color: 'gray',
+        x: 0,
+        y: 0,
+        width: defaultNodeWidth,
+        height: defaultNodeHeight,
+        layer: nodes.length,
+        collapsed: false,
+        locked: false,
+        ghost: true,
+      };
+      nodes.push(ghost);
+      nodeById.set(ghost.id, ghost);
     }
   }
   hydrateMetadata(nodes, meta);
@@ -60,15 +91,24 @@ export function parseMarkdownGraph(text: string): GraphDocument {
   return { preamble, nodes, edges, meta, diagnostics };
 }
 
-function scanHeadings(text: string): Array<{ start: number; lineEnd: number; title: string }> {
-  const found: Array<{ start: number; lineEnd: number; title: string }> = [];
+function scanHeadings(text: string): HeadingScan[] {
+  const found: HeadingScan[] = [];
   let inFence = false;
   let offset = 0;
   for (const line of text.split(/(?<=\n)/)) {
     if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
     if (!inFence) {
       const match = /^##\s+(.+?)\s*\r?\n?$/.exec(line);
-      if (match) found.push({ start: offset, lineEnd: offset + line.length, title: match[1] });
+      if (match) {
+        let raw = match[1].trim();
+        const idMatch = /\s+\{#([a-zA-Z0-9_-]+)\}\s*$/.exec(raw);
+        let explicitId: string | undefined;
+        if (idMatch) {
+          explicitId = idMatch[1];
+          raw = raw.slice(0, idMatch.index).trim();
+        }
+        found.push({ start: offset, lineEnd: offset + line.length, title: raw, explicitId });
+      }
     }
     offset += line.length;
   }
@@ -96,7 +136,14 @@ function parseNodeBody(section: string, offset: number, diagnostics: GraphDiagno
   return { attributes, content };
 }
 
-function parseEdges(node: GraphNode, text: string, diagnostics: GraphDiagnostic[], storedEdges: CanvasMeta['edges']): GraphEdge[] {
+function parseEdges(
+  node: GraphNode,
+  text: string,
+  diagnostics: GraphDiagnostic[],
+  storedEdges: CanvasMeta['edges'],
+  nodeById: Map<string, GraphNode>,
+  nodeByTitle: Map<string, GraphNode>
+): GraphEdge[] {
   if (!node.sourceRange) return [];
   const section = text.slice(node.sourceRange.start, node.sourceRange.end);
   const edges: GraphEdge[] = [];
@@ -110,8 +157,15 @@ function parseEdges(node: GraphNode, text: string, diagnostics: GraphDiagnostic[
       const attrs = attributes ? parseAttributes(attributes, diagnostics, lineOffset) : {};
       wikiLink.lastIndex = 0;
       for (let link = wikiLink.exec(line); link; link = wikiLink.exec(line)) {
-        const target = normalizeNodeId(link[1]);
+        let rawTarget = link[1].trim();
+        if (rawTarget.startsWith('#')) {
+          rawTarget = rawTarget.slice(1).trim();
+        }
+        let target = normalizeNodeId(rawTarget);
         if (!target) continue;
+        if (!nodeById.has(target) && nodeByTitle.has(target)) {
+          target = nodeByTitle.get(target)!.id;
+        }
         const occurrence = targetOccurrences.get(target) ?? 0;
         targetOccurrences.set(target, occurrence + 1);
         const id = stableEdgeId(node.id, target, occurrence);

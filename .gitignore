@@ -9,6 +9,7 @@ out/
 # Testing & coverage
 coverage/
 .vscode-test/
+tests/
 
 # OS and temporary files
 .DS_Store

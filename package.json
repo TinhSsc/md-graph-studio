@@ -14,9 +14,28 @@
   "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor"],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Markdown Graph Studio",
+      "properties": {
+        "markdownGraphStudio.storageMode": {
+          "type": "string",
+          "enum": ["sidecar", "embedded", "stateless"],
+          "default": "sidecar",
+          "description": "Storage strategy for canvas layout metadata. 'sidecar' stores layout in .md.graph.json, keeping Markdown completely clean."
+        },
+        "markdownGraphStudio.sidecarNaming": {
+          "type": "string",
+          "enum": ["dot-md-graph-json", "dot-graph-json"],
+          "default": "dot-md-graph-json",
+          "description": "Naming convention for sidecar files: 'foo.md.graph.json' or 'foo.graph.json'."
+        }
+      }
+    },
     "commands": [
       { "command": "markdownGraphStudio.openAsGraph", "title": "Markdown Graph Studio: Open as Graph" },
-      { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side" }
+      { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side" },
+      { "command": "markdownGraphStudio.convertToSidecar", "title": "Markdown Graph Studio: Convert to Sidecar Storage" },
+      { "command": "markdownGraphStudio.embedMetadata", "title": "Markdown Graph Studio: Embed Metadata into Markdown" }
     ],
     "customEditors": [{
       "viewType": "markdownGraphStudio.editor",

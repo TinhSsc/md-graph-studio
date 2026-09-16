@@ -14,6 +14,22 @@ export function getCanvasEdgeEndpointsScript(): string {
       return { x: node.x + size.width * endpoint.xRatio, y: node.y + size.height * endpoint.yRatio };
     }
 
+    function endpointForNode(point, node) {
+      const size = getNodeSize(node);
+      const localX = Math.max(0, Math.min(size.width, point.x - node.x));
+      const localY = Math.max(0, Math.min(size.height, point.y - node.y));
+      const sides = [localX, size.width - localX, localY, size.height - localY];
+      const side = sides.indexOf(Math.min(...sides));
+      let xRatio = side === 0 ? 0 : side === 1 ? 1 : localX / size.width;
+      let yRatio = side === 2 ? 0 : side === 3 ? 1 : localY / size.height;
+      if (side === 0 || side === 1) {
+        if (Math.abs(yRatio - 0.5) < 0.22) yRatio = 0.5;
+      } else {
+        if (Math.abs(xRatio - 0.5) < 0.22) xRatio = 0.5;
+      }
+      return { kind: 'node', nodeId: node.id, xRatio, yRatio };
+    }
+
     function endpointFromPoint(point, excludedNodeId) {
       const snapDistance = 18 / pan.zoom;
       for (let index = graph.nodes.length - 1; index >= 0; index -= 1) {
@@ -21,15 +37,41 @@ export function getCanvasEdgeEndpointsScript(): string {
         if (node.id === excludedNodeId) continue;
         const size = getNodeSize(node);
         if (point.x < node.x - snapDistance || point.x > node.x + size.width + snapDistance || point.y < node.y - snapDistance || point.y > node.y + size.height + snapDistance) continue;
-        const localX = Math.max(0, Math.min(size.width, point.x - node.x));
-        const localY = Math.max(0, Math.min(size.height, point.y - node.y));
-        const sides = [localX, size.width - localX, localY, size.height - localY];
-        const side = sides.indexOf(Math.min(...sides));
-        const xRatio = side === 0 ? 0 : side === 1 ? 1 : localX / size.width;
-        const yRatio = side === 2 ? 0 : side === 3 ? 1 : localY / size.height;
-        return { kind: 'node', nodeId: node.id, xRatio, yRatio };
+        return endpointForNode(point, node);
       }
       return { kind: 'free', x: Math.round(point.x), y: Math.round(point.y) };
+    }
+
+    function endpointFromClientPoint(clientX, clientY, excludedNodeId) {
+      const point = screenToWorld(clientX, clientY);
+      const topElement = document.elementFromPoint(clientX, clientY);
+      const topPort = topElement?.closest('.port');
+      if (topPort) {
+        const topNode = topPort.closest('.node');
+        const nodeId = topNode?.id?.replace('node-', '');
+        if (nodeId && nodeId !== excludedNodeId) {
+          const p = topPort.dataset.port;
+          const xRatio = p === 'left' ? 0 : p === 'right' ? 1 : 0.5;
+          const yRatio = p === 'top' ? 0 : p === 'bottom' ? 1 : 0.5;
+          return { kind: 'node', nodeId, xRatio, yRatio };
+        }
+      }
+      const topNodeElement = topElement?.closest('.node');
+      if (topNodeElement) {
+        const nodeId = topNodeElement.id.replace('node-', '');
+        if (nodeId === excludedNodeId) return { kind: 'free', x: Math.round(point.x), y: Math.round(point.y) };
+        const node = findNode(nodeId);
+        if (node) return endpointForNode(point, node);
+      }
+
+      return endpointFromPoint(point, excludedNodeId);
+    }
+
+    function endpointForEdgeHandle(edge, key, clientX, clientY) {
+      const ownerId = key === 'source' ? edge.source : edge.target;
+      const owner = findNode(ownerId);
+      if (!owner) return null;
+      return endpointForNode(screenToWorld(clientX, clientY), owner);
     }
 
     function ensureEdgeEndpoints(edge, geometry) {

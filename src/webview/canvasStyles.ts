@@ -184,7 +184,7 @@ export function getCanvasStyles(): string {
     .editor-body { flex: 1; overflow-y: auto; padding: 8px 10px; }
     .field { display: grid; gap: 3px; margin-bottom: 7px; }
     .field label { font-size: 10px; color: var(--muted); font-weight: 500; }
-    input, textarea, select {
+    input:not([type="checkbox"]):not([type="radio"]), textarea, select {
       width: 100%;
       padding: 4px 6px;
       border: 1px solid var(--input-border);
@@ -241,13 +241,13 @@ export function getCanvasStyles(): string {
       transform-origin: 0 0;
       will-change: transform;
     }
-    /* SVG Layer - width/height > 0 so SVG renderer is active! */
+    /* SVG Layer - width/height > 0 so SVG renderer is active without allocating huge GPU textures */
     svg#svg, svg#wire-svg, svg#edge-handles-svg {
       position: absolute;
       left: 0;
       top: 0;
-      width: 50000px;
-      height: 50000px;
+      width: 1px;
+      height: 1px;
       overflow: visible;
       pointer-events: none;
     }
@@ -281,14 +281,14 @@ export function getCanvasStyles(): string {
       vector-effect: non-scaling-stroke;
     }
     .edge-segment-handle {
-      stroke: var(--focus);
+      stroke: transparent;
       stroke-width: 7;
       stroke-linecap: round;
-      opacity: 0.2;
+      opacity: 1;
       vector-effect: non-scaling-stroke;
       transition: opacity 0.12s, stroke-width 0.12s;
     }
-    .edge-segment-handle:hover, body.adjusting-edge .edge-segment-handle { opacity: 0.9; stroke-width: 9; }
+    .edge-segment-handle:hover, body.adjusting-edge .edge-segment-handle { stroke: var(--focus); opacity: 0.9; stroke-width: 9; }
     .edge-segment-handle.horizontal { cursor: ns-resize; }
     .edge-segment-handle.vertical { cursor: ew-resize; }
     .label {
@@ -307,7 +307,7 @@ export function getCanvasStyles(): string {
       border: 1.5px solid color-mix(in srgb, var(--node-color) 75%, var(--rule));
       border-radius: 12px;
       box-shadow: 0 4px 18px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.15);
-      cursor: move;
+      cursor: grab;
       user-select: none;
       min-width: 110px;
       max-width: 360px;
@@ -320,10 +320,20 @@ export function getCanvasStyles(): string {
       touch-action: none;
       transition: box-shadow 0.12s, outline 0.12s;
     }
+    .node:active, body.dragging-node, body.dragging-node .node {
+      cursor: grabbing !important;
+    }
     .node.selected {
       outline: 2.5px solid var(--focus) !important;
       outline-offset: 2px;
       box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 35%, transparent), 0 10px 28px rgba(0,0,0,0.35) !important;
+    }
+    .node.user-sized {
+      max-width: none;
+    }
+    .node.user-sized .node-content {
+      min-height: 0;
+      max-height: none;
     }
     .node.drop-target {
       outline: 2.5px dashed var(--focus) !important;
@@ -391,21 +401,69 @@ export function getCanvasStyles(): string {
     .node-list li { margin-bottom: 2px; }
     .node-task-item {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 6px;
       margin: 3px 0;
       line-height: 1.35;
       user-select: text;
+      width: 100%;
+    }
+    .node-task-item .task-text {
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+      cursor: text;
+    }
+    .node-task-item .task-text[contenteditable="true"] {
+      outline: 1px solid var(--focus);
+      background: var(--surface);
+      border-radius: 3px;
+      padding: 1px 4px;
     }
     .node-task-item.completed .task-text {
       text-decoration: line-through;
       opacity: 0.55;
     }
+    .task-delete-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      margin: 0;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .node-task-item:hover .task-delete-btn,
+    .task-delete-btn:focus-visible {
+      opacity: 0.75;
+    }
+    .task-delete-btn:hover {
+      opacity: 1 !important;
+      color: #ef4444;
+      background: color-mix(in srgb, #ef4444 15%, transparent);
+    }
     .task-checkbox {
+      width: 14px;
+      height: 14px;
+      min-width: 14px;
+      min-height: 14px;
       cursor: pointer;
       margin: 2px 0 0 0;
+      padding: 0;
       accent-color: var(--focus);
       flex-shrink: 0;
+      border-radius: 3px;
     }
     .inline-code {
       background: color-mix(in srgb, var(--ink) 12%, transparent);
@@ -416,6 +474,7 @@ export function getCanvasStyles(): string {
       color: var(--ink);
     }
     .node-code-block {
+      position: relative;
       background: color-mix(in srgb, var(--panel) 92%, #000 8%);
       border: 1px solid var(--rule);
       border-radius: 6px;
@@ -429,6 +488,23 @@ export function getCanvasStyles(): string {
       user-select: text;
     }
     .node-code-block code { font-family: inherit; font-size: inherit; }
+    .code-language {
+      display: block;
+      width: fit-content;
+      margin: -2px 0 5px auto;
+      color: var(--muted);
+      font-size: 9px;
+      cursor: text;
+      user-select: text;
+    }
+    [data-edit-kind][contenteditable='true'] {
+      outline: 1px solid var(--focus);
+      outline-offset: 2px;
+      border-radius: 3px;
+      user-select: text;
+      white-space: pre-wrap;
+      cursor: text;
+    }
     .node-image-container {
       margin: 5px 0;
       border-radius: 6px;

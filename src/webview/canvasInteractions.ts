@@ -1,5 +1,5 @@
 /**
- * Canvas interaction handlers: pan, zoom, marquee, context menu, shortcuts.
+ * Xử lý tương tác canvas bao gồm pan, zoom, phím tắt, vùng chọn marquee và menu ngữ cảnh.
  */
 export function getCanvasInteractionsScript(): string {
   return `
@@ -25,7 +25,7 @@ export function getCanvasInteractionsScript(): string {
       scheduleSaveViewport();
     }
 
-    function fitToView(padding = 70) {
+    function fitToView(padding = 70, save = true) {
       if (!graph.nodes || graph.nodes.length === 0) {
         pan = { x: 40, y: 40, zoom: 1 };
         view();
@@ -58,7 +58,7 @@ export function getCanvasInteractionsScript(): string {
       pan.x = (cw / 2) - (cx * scale);
       pan.y = (ch / 2) - (cy * scale);
       view();
-      scheduleSaveViewport();
+      if (save) scheduleSaveViewport();
     }
 
     function showContextMenu(clientX, clientY) {
@@ -71,14 +71,23 @@ export function getCanvasInteractionsScript(): string {
       if (clickedNode) {
         const nodeId = clickedNode.id.replace('node-', '');
         const node = findNode(nodeId);
-        html = '<div class="menu-item" id="ctx-edit-node">Edit Node</div>' +
+        html = '<div class="menu-item" id="ctx-img-workspace">Insert Image from Workspace</div>' +
+          '<div class="menu-item" id="ctx-img-url">Insert Image from URL</div>' +
+          '<div class="menu-item" id="ctx-add-link">Insert Link</div>' +
+          '<div class="menu-item" id="ctx-add-task">Add Checklist Item</div>' +
+          '<div class="menu-item" id="ctx-add-code">Insert Code Block</div>' +
+          '<div class="menu-item" id="ctx-add-tag">Add Tag</div>' +
+          '<div class="menu-item" id="ctx-add-quote">Insert Blockquote</div>' +
+          '<div class="menu-divider"></div>' +
+          '<div class="menu-item" id="ctx-edit-node">Edit Node</div>' +
           '<label class="menu-field"><span>Shape</span><select id="ctx-node-shape">' +
           ['rounded-rectangle', 'rectangle', 'circle', 'ellipse', 'diamond', 'triangle'].map(value => '<option' + (value === node?.shape ? ' selected' : '') + '>' + value + '</option>').join('') +
           '</select></label>' +
           '<label class="menu-field"><span>Color</span><select id="ctx-node-color">' +
           Object.keys(colors).map(value => '<option' + (value === node?.color ? ' selected' : '') + '>' + value + '</option>').join('') +
           '</select></label>' +
-          '<div class="menu-item" id="ctx-del-node">Delete Node</div>' +
+          '<div class="menu-divider"></div>' +
+          '<div class="menu-item menu-item-danger" id="ctx-del-node">Delete Node</div>' +
           '<div class="menu-divider"></div>';
       } else if (clickedEdge && clickedEdge.id.startsWith('edge-')) {
         const edgeId = clickedEdge.id.replace('edge-', '');
@@ -92,8 +101,15 @@ export function getCanvasInteractionsScript(): string {
           '<div class="menu-divider"></div>';
       }
 
-      html += '<div class="menu-item" id="ctx-add-node">Add Node Here</div>' +
-        '<div class="menu-item" id="ctx-fit">Fit to Screen (F)</div>' +
+      if (!clickedNode && !clickedEdge) {
+        html += '<div class="menu-item" id="ctx-add-node">Add Empty Node</div>' +
+          '<div class="menu-item" id="ctx-add-checklist-node">Add Checklist Node</div>' +
+          '<div class="menu-item" id="ctx-add-code-node">Add Code Node</div>' +
+          '<div class="menu-item" id="ctx-add-img-node">Add Image Node</div>' +
+          '<div class="menu-divider"></div>';
+      }
+
+      html += '<div class="menu-item" id="ctx-fit">Fit to Screen (F)</div>' +
         '<div class="menu-item" id="ctx-reset-zoom">Reset Zoom 100%</div>';
 
       contextMenu.innerHTML = html;
@@ -104,6 +120,13 @@ export function getCanvasInteractionsScript(): string {
 
       const addBtn = document.querySelector('#ctx-add-node');
       if (addBtn) addBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'addNode', x: wp.x, y: wp.y, shape: nodeShapeSelect.value, color: nodeColorSelect.value }); };
+      const addChecklistBtn = document.querySelector('#ctx-add-checklist-node');
+      if (addChecklistBtn) addChecklistBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'checklist', x: wp.x, y: wp.y }); };
+      const addCodeBtn = document.querySelector('#ctx-add-code-node');
+      if (addCodeBtn) addCodeBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'code', x: wp.x, y: wp.y }); };
+      const addImgBtn = document.querySelector('#ctx-add-img-node');
+      if (addImgBtn) addImgBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'requestPickImage', x: wp.x, y: wp.y }); };
+
       const fitBtn = document.querySelector('#ctx-fit');
       if (fitBtn) fitBtn.onclick = () => { closeContextMenu(); fitToView(); };
       const rstBtn = document.querySelector('#ctx-reset-zoom');
@@ -121,6 +144,22 @@ export function getCanvasInteractionsScript(): string {
           closeContextMenu();
           render();
         };
+
+        const imgWs = document.querySelector('#ctx-img-workspace');
+        if (imgWs) imgWs.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'requestPickImage', id: nodeId }); };
+        const imgUrl = document.querySelector('#ctx-img-url');
+        if (imgUrl) imgUrl.onclick = () => { closeContextMenu(); openPopover('imageUrl', nodeId); };
+        const linkBtn = document.querySelector('#ctx-add-link');
+        if (linkBtn) linkBtn.onclick = () => { closeContextMenu(); openPopover('link', nodeId); };
+        const taskBtn = document.querySelector('#ctx-add-task');
+        if (taskBtn) taskBtn.onclick = () => { closeContextMenu(); dispatchContentAction('task', { kind: 'task', text: 'New task' }, nodeId); };
+        const codeBtn = document.querySelector('#ctx-add-code');
+        if (codeBtn) codeBtn.onclick = () => { closeContextMenu(); openPopover('code', nodeId); };
+        const tagBtn = document.querySelector('#ctx-add-tag');
+        if (tagBtn) tagBtn.onclick = () => { closeContextMenu(); openPopover('tag', nodeId); };
+        const quoteBtn = document.querySelector('#ctx-add-quote');
+        if (quoteBtn) quoteBtn.onclick = () => { closeContextMenu(); dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId); };
+
         document.querySelector('#ctx-edit-node').onclick = () => {
           closeContextMenu();
           selectedNodeIds.clear();
@@ -130,7 +169,7 @@ export function getCanvasInteractionsScript(): string {
         };
         document.querySelector('#ctx-node-shape').onchange = applyContextStyle;
         document.querySelector('#ctx-node-color').onchange = applyContextStyle;
-        document.querySelector('#ctx-del-node').onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'deleteNode', id: nodeId }); };
+        document.querySelector('#ctx-del-node').onclick = () => { closeContextMenu(); openPopover('delete', nodeId); };
       }
       if (clickedEdge && clickedEdge.id.startsWith('edge-')) {
         const edgeId = clickedEdge.id.replace('edge-', '');
@@ -162,15 +201,19 @@ export function getCanvasInteractionsScript(): string {
 
     function setupKeyShortcuts() {
       window.onkeydown = e => {
-        const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+        const eventTarget = e.target instanceof HTMLElement ? e.target : null;
+        const isInput = Boolean(eventTarget && (
+          ['INPUT', 'TEXTAREA', 'SELECT'].includes(eventTarget.tagName) ||
+          eventTarget.isContentEditable ||
+          eventTarget.closest('[contenteditable="true"]')
+        ));
         if (e.code === 'Space' && !isInput) spaceDown = true;
         if (isInput) return;
 
         if (e.key === 'Delete' || e.key === 'Backspace') {
-          if (selectedNodeIds.size > 0) {
-            selectedNodeIds.forEach(id => vscode.postMessage({ type: 'deleteNode', id }));
-            selectedNodeIds.clear();
-            render();
+          if (selectedNodeIds.size === 1) {
+            const singleId = Array.from(selectedNodeIds)[0];
+            openPopover('delete', singleId);
           } else if (selectedEdgeId) {
             vscode.postMessage({ type: 'deleteEdge', id: selectedEdgeId });
             selectedEdgeId = null;

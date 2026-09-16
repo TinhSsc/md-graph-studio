@@ -1,3 +1,4 @@
+import { getCanvasInteractionConfigScript } from './canvasInteractionConfig';
 import { getCanvasGeometryScript } from './canvasGeometry';
 import { getCanvasEdgeEndpointsScript } from './canvasEdgeEndpoints';
 import { getCanvasEdgeRouterScript } from './canvasEdgeRouter';
@@ -5,10 +6,15 @@ import { getCanvasEdgeSegmentsScript } from './canvasEdgeSegments';
 import { getCanvasInspectorScript } from './canvasInspector';
 import { getCanvasNodeEditingScript } from './canvasNodeEditing';
 import { getCanvasInteractionsScript } from './canvasInteractions';
+import { getCanvasMarkdownRendererScript } from './canvasMarkdownRenderer';
 import { getCanvasRenderingScript } from './canvasRendering';
 import { getCanvasUiControlsScript } from './canvasUiControls';
-import { getCanvasMarkdownRendererScript } from './canvasMarkdownRenderer';
+import { getCanvasActionBarScript } from './canvasActionBar';
+import { getCanvasPopoversScript } from './canvasPopovers';
 
+/**
+ * Tổng hợp và khởi tạo toàn bộ script điều khiển canvas webview từ các module chuyên biệt.
+ */
 export function getCanvasScript(data: string): string {
   return `
   (function() {
@@ -17,7 +23,10 @@ export function getCanvasScript(data: string): string {
     const colors = { gray: '#7d8790', blue: '#4a98e5', green: '#45b87e', yellow: '#d2a32a', red: '#d05e6a', purple: '#9a79d3' };
     const rawPost = vscode.postMessage.bind(vscode);
     let editSequence = 0;
-    vscode.postMessage = message => rawPost({ ...message, editId: 'canvas-' + ++editSequence });
+    let appliedRevision = Number(initialGraph.meta?.revision ?? 0);
+    let pendingGraph = null;
+    let pendingGraphTimer = null;
+    vscode.postMessage = message => rawPost({ ...message, editId: 'canvas-' + ++editSequence, baseRevision: appliedRevision });
 
     let graph = initialGraph;
     const canvas = document.querySelector('#canvas');
@@ -45,6 +54,7 @@ export function getCanvasScript(data: string): string {
     let isMarquee = false;
     let marqueeStart = { x: 0, y: 0 };
 
+    let nodeDragCandidate = null;
     let dragGroup = null;
     let isNodeDragging = false;
     let rafNodeMovePending = false;
@@ -87,6 +97,7 @@ export function getCanvasScript(data: string): string {
       }, 600);
     }
 
+    ${getCanvasInteractionConfigScript()}
     ${getCanvasEdgeEndpointsScript()}
     ${getCanvasEdgeRouterScript()}
     ${getCanvasEdgeSegmentsScript()}
@@ -114,18 +125,12 @@ export function getCanvasScript(data: string): string {
       updateEdgesForNodes(movedSet);
     }
 
-    function findConnectionTarget(clientX, clientY) {
-      const directTarget = document.elementFromPoint(clientX, clientY)?.closest('.node');
-      if (directTarget && directTarget.id !== 'node-' + connecting.sourceNodeId) return directTarget;
-      const point = screenToWorld(clientX, clientY);
-      const endpoint = endpointFromPoint(point, connecting.sourceNodeId);
-      return endpoint.kind === 'node' ? document.querySelector('#node-' + CSS.escape(endpoint.nodeId)) : null;
-    }
-
     function computeConnectionRoute(clientX, clientY) {
       const pointer = screenToWorld(clientX, clientY);
-      const targetElement = findConnectionTarget(clientX, clientY);
-      const targetEndpoint = endpointFromPoint(pointer, connecting.sourceNodeId);
+      const targetEndpoint = endpointFromClientPoint(clientX, clientY, connecting.sourceNodeId);
+      const targetElement = targetEndpoint.kind === 'node'
+        ? document.querySelector('#node-' + CSS.escape(targetEndpoint.nodeId))
+        : null;
       const targetPoint = resolveEndpoint(targetEndpoint) || pointer;
       const targetId = targetElement ? targetElement.id.replace('node-', '') : (targetEndpoint.kind === 'node' ? targetEndpoint.nodeId : null);
       const route = calculateConnectorRoute(
@@ -152,9 +157,10 @@ export function getCanvasScript(data: string): string {
 
     canvas.onpointerdown = e => {
       closeContextMenu();
-      if (e.target.closest('#shortcuts-modal') || e.target.closest('#editor-right')) return;
+      const intent = resolvePointerIntent(e, spaceDown);
+      if (intent === 'OVERLAY' || intent === 'NODE_BODY' || intent === 'DIRECT_CONTROL' || intent === 'TEXT_EDITING' || intent === 'CONNECT_HANDLE' || intent === 'RESIZE_HANDLE' || intent === 'EDGE_HANDLE') return;
 
-      if (e.button === 1 || (e.button === 0 && spaceDown)) {
+      if (intent === 'CANVAS_PAN') {
         isPanning = true;
         panStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
         canvas.classList.add('panning');
@@ -162,7 +168,7 @@ export function getCanvasScript(data: string): string {
         return;
       }
 
-      if (e.button === 0 && !e.target.closest('.node')) {
+      if (intent === 'CANVAS_BACKGROUND') {
         if (!e.shiftKey) {
           selectedNodeIds.clear();
           selectedEdgeId = null;
@@ -193,7 +199,8 @@ export function getCanvasScript(data: string): string {
       }
       if (draggingEdgeEndpoint) {
         const edge = draggingEdgeEndpoint.edge;
-        const endpoint = endpointFromPoint(screenToWorld(e.clientX, e.clientY));
+        const endpoint = endpointForEdgeHandle(edge, draggingEdgeEndpoint.key, e.clientX, e.clientY);
+        if (!endpoint) return;
         edge.endpoints[draggingEdgeEndpoint.key] = endpoint;
         document.querySelectorAll('.node.drop-target').forEach(el => el.classList.remove('drop-target'));
         if (endpoint.kind === 'node') document.querySelector('#node-' + CSS.escape(endpoint.nodeId))?.classList.add('drop-target');
@@ -219,6 +226,7 @@ export function getCanvasScript(data: string): string {
           node.height = Math.max(minimumHeight, Math.round(resizing.origH + dh));
           resizing.el.style.height = node.height + 'px';
           updateEdgesForNodes(new Set([node.id]));
+          updateNodeActionBar();
         }
         return;
       }
@@ -247,9 +255,41 @@ export function getCanvasScript(data: string): string {
         return;
       }
 
+      if (nodeDragCandidate && !isNodeDragging) {
+        const dist = Math.hypot(e.clientX - nodeDragCandidate.startX, e.clientY - nodeDragCandidate.startY);
+        if (dist >= INTERACTION_CONFIG.thresholds.dragDistance) {
+          isNodeDragging = true;
+          nodeDragCandidate.moved = true;
+          if (!nodeDragCandidate.alreadySelected && !nodeDragCandidate.shiftKey) {
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeDragCandidate.nodeId);
+          } else if (!nodeDragCandidate.alreadySelected && nodeDragCandidate.shiftKey) {
+            selectedNodeIds.add(nodeDragCandidate.nodeId);
+          }
+          selectedEdgeId = null;
+          highlightSelection();
+
+          const items = [];
+          selectedNodeIds.forEach(id => {
+            const item = findNode(id);
+            const itemEl = document.querySelector('#node-' + CSS.escape(id));
+            if (item) items.push({ id, node: item, el: itemEl, origX: item.x, origY: item.y });
+          });
+          dragGroup = {
+            startX: nodeDragCandidate.worldStart.x,
+            startY: nodeDragCandidate.worldStart.y,
+            items,
+            moved: false
+          };
+          document.body.classList.add('dragging-node');
+        }
+      }
+
       if (isNodeDragging && dragGroup) {
+        const dragPoint = screenToWorld(e.clientX, e.clientY);
+        if (!dragGroup.moved && Math.hypot(dragPoint.x - dragGroup.startX, dragPoint.y - dragGroup.startY) < INTERACTION_CONFIG.thresholds.dragDistance / pan.zoom) return;
         dragGroup.moved = true;
-        pendingNodeDragPoint = screenToWorld(e.clientX, e.clientY);
+        pendingNodeDragPoint = dragPoint;
 
         if (!rafNodeMovePending) {
           rafNodeMovePending = true;
@@ -258,6 +298,7 @@ export function getCanvasScript(data: string): string {
             const point = pendingNodeDragPoint;
             pendingNodeDragPoint = null;
             applyNodeDragPosition(point);
+            updateNodeActionBar();
           });
         }
         return;
@@ -290,7 +331,8 @@ export function getCanvasScript(data: string): string {
       }
       if (draggingEdgeEndpoint) {
         const edge = draggingEdgeEndpoint.edge;
-        edge.endpoints[draggingEdgeEndpoint.key] = endpointFromPoint(screenToWorld(e.clientX, e.clientY));
+        const endpoint = endpointForEdgeHandle(edge, draggingEdgeEndpoint.key, e.clientX, e.clientY);
+        if (endpoint) edge.endpoints[draggingEdgeEndpoint.key] = endpoint;
         vscode.postMessage({ type: 'saveEdgeLayout', id: edge.id, endpoints: edge.endpoints });
         draggingEdgeEndpoint = null;
         document.body.classList.remove('connecting');
@@ -305,7 +347,7 @@ export function getCanvasScript(data: string): string {
       if (resizing) {
         vscode.postMessage({
           type: 'saveLayout',
-          nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height })),
+          nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height, layer: n.layer })),
           viewport: pan
         });
         resizing = null;
@@ -323,18 +365,40 @@ export function getCanvasScript(data: string): string {
         }
       }
 
-      if (isNodeDragging && dragGroup) {
-        if (pendingNodeDragPoint) {
-          applyNodeDragPosition(pendingNodeDragPoint);
-          pendingNodeDragPoint = null;
-        }
-        if (dragGroup.moved) {
+      if (nodeDragCandidate) {
+        document.body.classList.remove('dragging-node');
+        if (!nodeDragCandidate.moved) {
+          if (nodeDragCandidate.shiftKey) {
+            if (selectedNodeIds.has(nodeDragCandidate.nodeId)) selectedNodeIds.delete(nodeDragCandidate.nodeId);
+            else selectedNodeIds.add(nodeDragCandidate.nodeId);
+          } else {
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeDragCandidate.nodeId);
+          }
+          selectedEdgeId = null;
+          highlightSelection();
+          if (selectedNodeIds.size === 1) {
+            inspectNode(nodeDragCandidate.nodeId);
+            editorRight.classList.remove('collapsed');
+          } else if (selectedNodeIds.size > 1) {
+            inspectMulti();
+            editorRight.classList.remove('collapsed');
+          } else {
+            inspectEmpty();
+          }
+          updateNodeActionBar();
+        } else if (dragGroup && dragGroup.moved) {
+          if (pendingNodeDragPoint) {
+            applyNodeDragPosition(pendingNodeDragPoint);
+            pendingNodeDragPoint = null;
+          }
           vscode.postMessage({
             type: 'saveLayout',
-            nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height })),
+            nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height, layer: n.layer })),
             viewport: pan
           });
         }
+        nodeDragCandidate = null;
         dragGroup = null;
         isNodeDragging = false;
       }
@@ -368,21 +432,57 @@ export function getCanvasScript(data: string): string {
     };
 
     ${getCanvasUiControlsScript()}
+    ${getCanvasPopoversScript()}
+    ${getCanvasActionBarScript()}
 
     setupKeyShortcuts();
     window.addEventListener('dragstart', e => e.preventDefault());
 
     window.addEventListener('message', event => {
       if (event.data?.type !== 'graph') return;
-      if (isNodeDragging || resizing || connecting || draggingEdgeEndpoint || draggingEdgeSegment || activeNodeEditor) return;
-      graph = event.data.graph;
-      render();
+      const incomingRevision = Number(event.data.graph?.meta?.revision ?? 0);
+      if (incomingRevision < appliedRevision) return;
+      pendingGraph = event.data.graph;
+      schedulePendingGraph();
     });
+
+    function schedulePendingGraph() {
+      if (pendingGraphTimer !== null) return;
+      pendingGraphTimer = setTimeout(applyPendingGraph, 50);
+    }
+
+    function applyPendingGraph() {
+      pendingGraphTimer = null;
+      if (!pendingGraph) return;
+      if (isNodeDragging || resizing || connecting || draggingEdgeEndpoint || draggingEdgeSegment || activeNodeEditor) {
+        schedulePendingGraph();
+        return;
+      }
+      const incomingRevision = Number(pendingGraph.meta?.revision ?? 0);
+      if (incomingRevision < appliedRevision) {
+        pendingGraph = null;
+        return;
+      }
+      appliedRevision = incomingRevision;
+      graph = pendingGraph;
+      pendingGraph = null;
+      const validNodeIds = new Set(graph.nodes.map(n => n.id));
+      for (const id of Array.from(selectedNodeIds)) {
+        if (!validNodeIds.has(id)) selectedNodeIds.delete(id);
+      }
+      if (typeof isPopoverOpen === 'function' && isPopoverOpen() && popoverContext && !validNodeIds.has(popoverContext.nodeId)) {
+        closePopover(false);
+      }
+      if (typeof actionBarNodeId !== 'undefined' && actionBarNodeId && !validNodeIds.has(actionBarNodeId)) {
+        hideNodeActionBar();
+      }
+      render();
+    }
 
     render();
 
     if (!graph.meta?.viewport || (graph.meta.viewport.x === 0 && graph.meta.viewport.y === 0 && graph.meta.viewport.zoom === 1)) {
-      setTimeout(() => fitToView(), 35);
+      setTimeout(() => fitToView(70, false), 35);
     } else {
       pan = { ...graph.meta.viewport };
       view();

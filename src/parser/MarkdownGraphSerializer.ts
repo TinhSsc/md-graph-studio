@@ -1,4 +1,4 @@
-import type { CanvasMeta, GraphEdge, GraphNode } from '../model/graphTypes';
+import type { CanvasMeta, GraphEdge, GraphNode, Port } from '../model/graphTypes';
 
 export interface TextEdit { start: number; end: number; text: string; }
 
@@ -11,17 +11,33 @@ export function serializeNodeAttributes(node: Pick<GraphNode, 'shape' | 'color' 
 }
 
 export function serializeEdge(target: string, edge: Pick<GraphEdge, 'label' | 'arrow' | 'line' | 'path' | 'color' | 'fromPort' | 'toPort'>): string {
-  const attributes = [`arrow=${edge.arrow}`, `line=${edge.line}`, `path=${edge.path}`];
+  const link = edge.label ? `[[${target}|${edge.label}]]` : `[[${target}]]`;
+  const isDefault =
+    (edge.arrow ?? 'forward') === 'forward' &&
+    (edge.line ?? 'solid') === 'solid' &&
+    (edge.path ?? 'orthogonal') === 'orthogonal' &&
+    !edge.color &&
+    !edge.fromPort &&
+    !edge.toPort;
+
+  if (isDefault) {
+    return `- ${link}`;
+  }
+
+  const attributes: string[] = [];
+  if (edge.arrow && edge.arrow !== 'forward') attributes.push(`arrow=${edge.arrow}`);
+  if (edge.line && edge.line !== 'solid') attributes.push(`line=${edge.line}`);
+  if (edge.path && edge.path !== 'orthogonal') attributes.push(`path=${edge.path}`);
   if (edge.color) attributes.push(`color=${edge.color}`);
   if (edge.fromPort) attributes.push(`from=${edge.fromPort}`);
   if (edge.toPort) attributes.push(`to=${edge.toPort}`);
-  const link = edge.label ? `[[${target}|${edge.label}]]` : `[[${target}]]`;
-  return `- ${link} <!-- graph-edge: ${attributes.join('; ')} -->`;
+  return attributes.length > 0 ? `- ${link} <!-- graph-edge: ${attributes.join('; ')} -->` : `- ${link}`;
 }
 
-export function createNodeSection(node: Pick<GraphNode, 'title' | 'shape' | 'color' | 'collapsed' | 'locked' | 'content'>): string {
+export function createNodeSection(node: Pick<GraphNode, 'title' | 'shape' | 'color' | 'collapsed' | 'locked' | 'content'> & { explicitId?: string }): string {
   const content = node.content.trimEnd();
-  return `## ${node.title}\n${serializeNodeAttributes(node)}\n${content}${content ? '\n\n' : '\n'}`;
+  const heading = node.explicitId ? `## ${node.title} {#${node.explicitId}}` : `## ${node.title}`;
+  return `${heading}\n${serializeNodeAttributes(node)}\n${content}${content ? '\n\n' : '\n'}`;
 }
 
 export function updateCanvasMeta(text: string, meta: CanvasMeta): TextEdit {
@@ -47,13 +63,34 @@ export function updateNodeSection(text: string, node: GraphNode, changes: Pick<G
   const edgesSuffix = edgeLines.length > 0 ? `\n\n${edgeLines.join('\n')}` : '';
   const bodyContent = changes.content.trim();
   const fullContent = bodyContent ? `${bodyContent}${edgesSuffix}` : edgesSuffix.trimStart();
-  return { start: node.sourceRange.start, end: node.sourceRange.end, text: createNodeSection({ ...changes, content: fullContent }) };
+  return { start: node.sourceRange.start, end: node.sourceRange.end, text: createNodeSection({ ...changes, explicitId: node.explicitId, content: fullContent }) };
 }
 
-export function appendEdge(text: string, source: GraphNode, target: string, path: GraphEdge['path'] = 'orthogonal'): TextEdit {
+export interface AppendEdgeOptions {
+  label?: string;
+  arrow?: GraphEdge['arrow'];
+  line?: GraphEdge['line'];
+  fromPort?: Port;
+  toPort?: Port;
+}
+
+export function appendEdge(
+  text: string,
+  source: GraphNode,
+  target: string,
+  path: GraphEdge['path'] = 'orthogonal',
+  options?: AppendEdgeOptions
+): TextEdit {
   if (!source.sourceRange) throw new Error('Cannot connect a ghost node.');
   const insertPos = source.sourceRange.end;
-  const edgeText = serializeEdge(target, { label: '', arrow: 'forward', line: 'solid', path });
+  const edgeText = serializeEdge(target, {
+    label: options?.label ?? '',
+    arrow: options?.arrow ?? 'forward',
+    line: options?.line ?? 'solid',
+    path,
+    fromPort: options?.fromPort,
+    toPort: options?.toPort,
+  });
   const prefix = text.slice(0, insertPos).endsWith('\n') ? '' : '\n';
   return {
     start: insertPos,

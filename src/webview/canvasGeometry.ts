@@ -36,12 +36,22 @@ export function getCanvasGeometryScript(): string {
       const bcx = b.x + bw / 2;
       const bcy = b.y + bh / 2;
 
-      const defaultP1 = getNodeBorderPoint(acx, acy, aw, ah, bcx, bcy);
-      const defaultP2 = getNodeBorderPoint(bcx, bcy, bw, bh, acx, acy);
+      function getPortPoint(node, w, h, port) {
+        if (port === 'top') return { x: node.x + w / 2, y: node.y };
+        if (port === 'right') return { x: node.x + w, y: node.y + h / 2 };
+        if (port === 'bottom') return { x: node.x + w / 2, y: node.y + h };
+        if (port === 'left') return { x: node.x, y: node.y + h / 2 };
+        return null;
+      }
+
+      const portP1 = e.fromPort ? getPortPoint(a, aw, ah, e.fromPort) : null;
+      const portP2 = e.toPort ? getPortPoint(b, bw, bh, e.toPort) : null;
+      const defaultP1 = portP1 || getNodeBorderPoint(acx, acy, aw, ah, bcx, bcy);
+      const defaultP2 = portP2 || getNodeBorderPoint(bcx, bcy, bw, bh, acx, acy);
       const p1 = resolveEndpoint(e.endpoints?.source) || defaultP1;
       const p2 = resolveEndpoint(e.endpoints?.target) || defaultP2;
-      const sourceDirection = endpointDirection(e.endpoints?.source) || endpointDirection({ kind: 'node', xRatio: (p1.x - a.x) / aw, yRatio: (p1.y - a.y) / ah });
-      const targetDirection = endpointDirection(e.endpoints?.target) || endpointDirection({ kind: 'node', xRatio: (p2.x - b.x) / bw, yRatio: (p2.y - b.y) / bh });
+      const sourceDirection = endpointDirection(e.endpoints?.source) || e.fromPort || endpointDirection({ kind: 'node', xRatio: (p1.x - a.x) / aw, yRatio: (p1.y - a.y) / ah });
+      const targetDirection = endpointDirection(e.endpoints?.target) || e.toPort || endpointDirection({ kind: 'node', xRatio: (p2.x - b.x) / bw, yRatio: (p2.y - b.y) / bh });
       const route = calculateConnectorRoute(p1, sourceDirection, p2, targetDirection, a.id, b.id, e.endpoints?.guide);
       const midpoint = route[Math.floor(route.length / 2)] || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
       return { d: roundedOrthogonalPath(route), mx: midpoint.x, my: midpoint.y, p1, p2, route };

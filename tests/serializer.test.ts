@@ -5,7 +5,8 @@ import { parseMarkdownGraph } from '../src/parser/MarkdownGraphParser';
 describe('MarkdownGraphSerializer', () => {
   it('serializes semantic node and edge syntax', () => {
     expect(createNodeSection({ title: 'Start', shape: 'circle', color: 'blue', collapsed: false, locked: false, content: 'Hello' })).toContain('<!-- graph-node: shape=circle; color=blue; collapsed=false; locked=false -->');
-    expect(serializeEdge('Finish', { label: 'next', arrow: 'forward', line: 'solid', path: 'orthogonal' })).toBe('- [[Finish|next]] <!-- graph-edge: arrow=forward; line=solid; path=orthogonal -->');
+    expect(serializeEdge('Finish', { label: 'next', arrow: 'forward', line: 'solid', path: 'orthogonal' })).toBe('- [[Finish|next]]');
+    expect(serializeEdge('Finish', { label: 'next', arrow: 'forward', line: 'dashed', path: 'orthogonal' })).toBe('- [[Finish|next]] <!-- graph-edge: line=dashed -->');
   });
 
   it('replaces only canvas metadata', () => {

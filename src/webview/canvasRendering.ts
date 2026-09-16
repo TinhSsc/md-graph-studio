@@ -47,31 +47,56 @@ export function getCanvasRenderingScript(): string {
       const header = element.querySelector('.node-header');
       const content = element.querySelector('.node-content');
       const headerHeight = header ? header.offsetHeight : 36;
-      const contentHeight = content ? content.scrollHeight : 0;
+      if (!content) return Math.max(38, Math.ceil(headerHeight + 2));
+      const previous = {
+        flex: content.style.flex,
+        height: content.style.height,
+        minHeight: content.style.minHeight,
+        maxHeight: content.style.maxHeight
+      };
+      content.style.flex = 'none';
+      content.style.height = '0px';
+      content.style.minHeight = '0px';
+      content.style.maxHeight = 'none';
+      const contentHeight = content.scrollHeight;
+      content.style.flex = previous.flex;
+      content.style.height = previous.height;
+      content.style.minHeight = previous.minHeight;
+      content.style.maxHeight = previous.maxHeight;
       return Math.max(38, Math.ceil(headerHeight + contentHeight + 2));
     }
 
     function renderNode(n) {
+      const savedNodeMeta = graph.meta?.nodes?.[n.id];
+      const manuallySized = Boolean(n.resized || savedNodeMeta?.width !== undefined || savedNodeMeta?.height !== undefined);
       const el = document.createElement('article');
       el.id = 'node-' + n.id;
-      el.className = 'node ' + (n.shape || 'rounded-rectangle') + (n.ghost ? ' ghost' : '') + (selectedNodeIds.has(n.id) ? ' selected' : '');
+      el.className = 'node ' + (n.shape || 'rounded-rectangle') + (n.ghost ? ' ghost' : '') + (selectedNodeIds.has(n.id) ? ' selected' : '') + (manuallySized ? ' user-sized' : '');
       el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
+      if (typeof n.layer === 'number') el.style.zIndex = String(n.layer);
       if (n.resized || (n.width && n.width !== 240)) el.style.width = n.width + 'px';
       if (n.resized || (n.height && n.height !== 160)) el.style.height = n.height + 'px';
       el.style.setProperty('--node-color', colors[n.color] || n.color || '#7d8790');
       const renderedContent = renderMarkdownToHtml(n.content || '', n.id);
       el.innerHTML = '<div class="node-header"><div class="node-color-dot"></div><div class="node-title">' + esc(n.title) + '</div></div>' + (renderedContent ? '<div class="node-content">' + renderedContent + '</div>' : '') + ['top', 'right', 'bottom', 'left'].map(p => '<div class="port ' + p + '" data-port="' + p + '" title="Drag to connect"></div>').join('') + '<div class="resizer" title="Drag to resize"></div>';
       el.onpointerdown = e => {
-        if (e.target.closest('.port') || e.target.closest('.resizer') || e.target.closest('.task-checkbox') || e.target.closest('.node-link') || e.button !== 0) return;
+        const intent = resolvePointerIntent(e, spaceDown);
+        if (intent !== 'NODE_BODY') return;
+        closeContextMenu();
         e.stopPropagation();
-        if (e.shiftKey) { if (selectedNodeIds.has(n.id)) selectedNodeIds.delete(n.id); else selectedNodeIds.add(n.id); }
-        else if (!selectedNodeIds.has(n.id)) { selectedNodeIds.clear(); selectedNodeIds.add(n.id); }
-        selectedEdgeId = null; highlightSelection();
-        if (selectedNodeIds.size === 1) inspectNode(n.id); else inspectMulti();
+
         const p = screenToWorld(e.clientX, e.clientY);
-        const items = [];
-        selectedNodeIds.forEach(id => { const item = findNode(id); const itemEl = document.querySelector('#node-' + CSS.escape(id)); if (item) items.push({ id, node: item, el: itemEl, origX: item.x, origY: item.y }); });
-        dragGroup = { startX: p.x, startY: p.y, items, moved: false }; isNodeDragging = true;
+        nodeDragCandidate = {
+          startX: e.clientX,
+          startY: e.clientY,
+          worldStart: p,
+          nodeId: n.id,
+          node: n,
+          el,
+          shiftKey: e.shiftKey,
+          alreadySelected: selectedNodeIds.has(n.id),
+          moved: false
+        };
       };
       el.onclick = e => {
         const checkbox = e.target.closest('.task-checkbox');
@@ -79,6 +104,14 @@ export function getCanvasRenderingScript(): string {
           e.stopPropagation();
           const taskIdx = parseInt(checkbox.dataset.taskIndex, 10);
           vscode.postMessage({ type: 'toggleTask', id: n.id, task: taskIdx });
+          return;
+        }
+        const deleteBtn = e.target.closest('.task-delete-btn');
+        if (deleteBtn) {
+          e.stopPropagation();
+          e.preventDefault();
+          const taskIdx = parseInt(deleteBtn.dataset.taskIndex, 10);
+          vscode.postMessage({ type: 'deleteTask', id: n.id, taskIndex: taskIdx });
           return;
         }
         const link = e.target.closest('.node-link');
@@ -91,7 +124,7 @@ export function getCanvasRenderingScript(): string {
         }
       };
       el.ondblclick = e => {
-        if (e.target.closest('.task-checkbox') || e.target.closest('.node-link')) return;
+        if (isInteractiveControl(e.target)) return;
         e.stopPropagation();
         selectedNodeIds.clear();
         selectedNodeIds.add(n.id);
@@ -99,7 +132,13 @@ export function getCanvasRenderingScript(): string {
         highlightSelection();
         startInlineNodeEdit(n, el, e.target);
       };
-      el.querySelector('.resizer').onpointerdown = re => { re.stopPropagation(); re.preventDefault(); resizing = { id: n.id, el, startX: re.clientX, startY: re.clientY, origW: el.offsetWidth, origH: el.offsetHeight }; };
+      el.querySelector('.resizer').onpointerdown = re => {
+        re.stopPropagation();
+        re.preventDefault();
+        n.resized = true;
+        el.classList.add('user-sized');
+        resizing = { id: n.id, el, startX: re.clientX, startY: re.clientY, origW: el.offsetWidth, origH: el.offsetHeight };
+      };
       el.querySelectorAll('.port').forEach(port => {
         port.onpointerdown = pe => {
           pe.stopPropagation(); pe.preventDefault(); document.body.classList.add('connecting');
@@ -115,18 +154,20 @@ export function getCanvasRenderingScript(): string {
       el.querySelectorAll('.node-img').forEach(img => {
         img.onload = () => {
           const minH = getNodeMinimumHeight(el);
-          if (n.height < minH) {
-            n.height = minH;
-            el.style.height = minH + 'px';
+          const targetH = manuallySized ? Math.max(n.height || 160, minH) : Math.min(380, Math.max(n.height || 160, minH));
+          if (n.height < targetH) {
+            n.height = targetH;
+            el.style.height = targetH + 'px';
             updateEdgesForNodes(new Set([n.id]));
           }
         };
       });
       nodes.append(el);
       const minimumHeight = getNodeMinimumHeight(el);
-      if (n.height < minimumHeight) {
-        n.height = minimumHeight;
-        el.style.height = minimumHeight + 'px';
+      const targetHeight = manuallySized ? Math.max(n.height || 160, minimumHeight) : Math.min(380, Math.max(n.height || 160, minimumHeight));
+      if (n.height !== targetHeight) {
+        n.height = targetHeight;
+        el.style.height = targetHeight + 'px';
       }
     }
 

@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import { MarkdownGraphEditorProvider } from './providers/MarkdownGraphEditorProvider';
+import { registerStorageMigrationCommands } from './commands/StorageMigrationCommands';
+import { registerFileLifecycleWatcher } from './storage/FileLifecycleWatcher';
 
+// Kích hoạt tiện ích mở rộng Markdown Graph Studio
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, new MarkdownGraphEditorProvider()));
   context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async () => {
@@ -20,6 +23,10 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.window.showTextDocument(editor.document, { viewColumn: vscode.ViewColumn.One, preserveFocus: true });
     await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, MarkdownGraphEditorProvider.viewType, vscode.ViewColumn.Beside);
   }));
+
+  registerStorageMigrationCommands(context);
+  registerFileLifecycleWatcher(context);
 }
 
+// Hủy kích hoạt tiện ích mở rộng
 export function deactivate(): void {}
