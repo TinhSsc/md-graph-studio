@@ -127,7 +127,7 @@ export function getCanvasInspectorScript(): string {
           if (action === 'bold') insertMarkdown('**', '**', 'bold text');
           else if (action === 'italic') insertMarkdown('*', '*', 'italic text');
           else if (action === 'code') insertMarkdown('\`', '\`', 'code');
-          else if (action === 'codeblock') insertMarkdown('\`\`\`ts\n', '\n\`\`\`', '// code');
+          else if (action === 'codeblock') insertMarkdown('\`\`\`ts\\n', '\\n\`\`\`', '// code');
           else if (action === 'list') insertMarkdown('- ', '', 'list item');
           else if (action === 'task') insertMarkdown('- [ ] ', '', 'task item');
           else if (action === 'link') insertMarkdown('[', '](https://)', 'link title');

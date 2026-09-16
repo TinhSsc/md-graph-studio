@@ -55,7 +55,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     };
     const initialGraph = currentGraph();
     initialGraph.resolvedImages = resolveImages(initialGraph);
-    panel.webview.html = canvasHtml(initialGraph, panel.webview.cspSource);
+    panel.webview.html = canvasHtml(initialGraph);
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() === document.uri.toString()) sendGraph();
     });
