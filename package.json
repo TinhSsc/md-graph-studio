@@ -1,0 +1,39 @@
+{
+  "name": "md-graph-studio",
+  "displayName": "Markdown Graph Studio",
+  "description": "Edit semantic Markdown graphs entirely inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.95.0" },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "markdownGraphStudio.openAsGraph", "title": "Markdown Graph Studio: Open as Graph" },
+      { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side" }
+    ],
+    "customEditors": [{
+      "viewType": "markdownGraphStudio.editor",
+      "displayName": "Markdown Graph Studio",
+      "selector": [{ "filenamePattern": "*.md" }],
+      "priority": "option"
+    }]
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "npm run check && npm test && npm run build",
+    "package": "npm run verify && vsce package --allow-missing-repository --out dist/markdown-graph-studio.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.95.0",
+    "esbuild": "^0.24.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

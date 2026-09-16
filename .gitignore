@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build and packaging output
+dist/
+out/
+*.vsix
+
+# Testing & coverage
+coverage/
+.vscode-test/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+*.log
