@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "local",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TinhSsc/md-graph-studio.git"
+  },
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Visualization", "Other"],
   "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor"],

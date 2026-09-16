@@ -14,13 +14,48 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   public static readonly viewType = 'markdownGraphStudio.editor';
 
   public resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
-    panel.webview.options = { enableScripts: true };
+    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const docDir = vscode.Uri.joinPath(document.uri, '..');
+    panel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        docDir,
+        ...(folder ? [folder.uri] : [])
+      ]
+    };
+
+    const resolveImages = (graph: ReturnType<typeof currentGraph>): Record<string, string> => {
+      const resolved: Record<string, string> = {};
+      const imgRegex = /!\[.*?\]\((.+?)\)/g;
+      for (const node of graph.nodes) {
+        let match: RegExpExecArray | null;
+        while ((match = imgRegex.exec(node.content)) !== null) {
+          const rawPath = match[1].trim();
+          if (!/^https?:\/\//i.test(rawPath) && !/^data:/i.test(rawPath)) {
+            try {
+              const fileUri = vscode.Uri.joinPath(docDir, rawPath);
+              resolved[rawPath] = panel.webview.asWebviewUri(fileUri).toString();
+            } catch {
+              // Ignore invalid local paths
+            }
+          }
+        }
+      }
+      return resolved;
+    };
+
     let ready = false;
     const currentGraph = () => layoutGraphDocument(parseMarkdownGraph(document.getText()));
     const sendGraph = () => {
-      if (ready) void panel.webview.postMessage({ type: 'graph', graph: currentGraph() });
+      if (ready) {
+        const g = currentGraph();
+        g.resolvedImages = resolveImages(g);
+        void panel.webview.postMessage({ type: 'graph', graph: g });
+      }
     };
-    panel.webview.html = canvasHtml(currentGraph());
+    const initialGraph = currentGraph();
+    initialGraph.resolvedImages = resolveImages(initialGraph);
+    panel.webview.html = canvasHtml(initialGraph, panel.webview.cspSource);
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() === document.uri.toString()) sendGraph();
     });
@@ -131,13 +166,31 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       await this.apply(document, [{ start: 0, end: text.length, text: nextText }]);
       return;
     }
-    if (value.type === 'toggleTask' && node && typeof value.task === 'number') {
-      let index = -1;
-      const content = node.content.replace(/- \[([ xX])\]/g, (match) => {
-        index += 1;
-        return index === value.task ? (match.toLowerCase() === '- [x]' ? '- [ ]' : '- [x]') : match;
-      });
-      await this.apply(document, [updateNodeSection(text, node, { ...node, content })]);
+    if (value.type === 'toggleTask' && node) {
+      const taskIndex = typeof value.task === 'number' ? value.task : (typeof value.taskIndex === 'number' ? value.taskIndex : -1);
+      if (taskIndex >= 0) {
+        let index = -1;
+        const content = node.content.replace(/([-*]\s*\[)([ xX])(\])/g, (match, prefix, state, suffix) => {
+          index += 1;
+          if (index === taskIndex) {
+            const nextState = state.toLowerCase() === 'x' ? ' ' : 'x';
+            return `${prefix}${nextState}${suffix}`;
+          }
+          return match;
+        });
+        await this.apply(document, [updateNodeSection(text, node, { ...node, content })]);
+        return;
+      }
+    }
+    if (value.type === 'openLink' && typeof value.href === 'string') {
+      const href = value.href.trim();
+      const docDir = vscode.Uri.joinPath(document.uri, '..');
+      const targetUri = /^https?:\/\//i.test(href) ? vscode.Uri.parse(href) : vscode.Uri.joinPath(docDir, href);
+      try {
+        await vscode.commands.executeCommand('vscode.open', targetUri);
+      } catch {
+        void vscode.window.showWarningMessage(`Could not open: ${href}`);
+      }
       return;
     }
     if (value.type === 'deleteNode' && node) {

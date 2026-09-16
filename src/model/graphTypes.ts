@@ -74,4 +74,5 @@ export interface GraphDocument {
   edges: GraphEdge[];
   meta?: CanvasMeta;
   diagnostics: GraphDiagnostic[];
+  resolvedImages?: Record<string, string>;
 }

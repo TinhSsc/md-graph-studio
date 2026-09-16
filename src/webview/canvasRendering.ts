@@ -59,10 +59,10 @@ export function getCanvasRenderingScript(): string {
       if (n.resized || (n.width && n.width !== 240)) el.style.width = n.width + 'px';
       if (n.resized || (n.height && n.height !== 160)) el.style.height = n.height + 'px';
       el.style.setProperty('--node-color', colors[n.color] || n.color || '#7d8790');
-      const cleanContent = (n.content || '').split(String.fromCharCode(10)).filter(l => !l.trim().includes('[[') && !l.trim().includes('<!--')).join(String.fromCharCode(10)).trim();
-      el.innerHTML = '<div class="node-header"><div class="node-color-dot"></div><div class="node-title">' + esc(n.title) + '</div></div>' + (cleanContent ? '<div class="node-content">' + esc(cleanContent) + '</div>' : '') + ['top', 'right', 'bottom', 'left'].map(p => '<div class="port ' + p + '" data-port="' + p + '" title="Drag to connect"></div>').join('') + '<div class="resizer" title="Drag to resize"></div>';
+      const renderedContent = renderMarkdownToHtml(n.content || '', n.id);
+      el.innerHTML = '<div class="node-header"><div class="node-color-dot"></div><div class="node-title">' + esc(n.title) + '</div></div>' + (renderedContent ? '<div class="node-content">' + renderedContent + '</div>' : '') + ['top', 'right', 'bottom', 'left'].map(p => '<div class="port ' + p + '" data-port="' + p + '" title="Drag to connect"></div>').join('') + '<div class="resizer" title="Drag to resize"></div>';
       el.onpointerdown = e => {
-        if (e.target.closest('.port') || e.target.closest('.resizer') || e.button !== 0) return;
+        if (e.target.closest('.port') || e.target.closest('.resizer') || e.target.closest('.task-checkbox') || e.target.closest('.node-link') || e.button !== 0) return;
         e.stopPropagation();
         if (e.shiftKey) { if (selectedNodeIds.has(n.id)) selectedNodeIds.delete(n.id); else selectedNodeIds.add(n.id); }
         else if (!selectedNodeIds.has(n.id)) { selectedNodeIds.clear(); selectedNodeIds.add(n.id); }
@@ -73,7 +73,32 @@ export function getCanvasRenderingScript(): string {
         selectedNodeIds.forEach(id => { const item = findNode(id); const itemEl = document.querySelector('#node-' + CSS.escape(id)); if (item) items.push({ id, node: item, el: itemEl, origX: item.x, origY: item.y }); });
         dragGroup = { startX: p.x, startY: p.y, items, moved: false }; isNodeDragging = true;
       };
-      el.ondblclick = e => { e.stopPropagation(); selectedNodeIds.clear(); selectedNodeIds.add(n.id); selectedEdgeId = null; highlightSelection(); startInlineNodeEdit(n, el, e.target); };
+      el.onclick = e => {
+        const checkbox = e.target.closest('.task-checkbox');
+        if (checkbox) {
+          e.stopPropagation();
+          const taskIdx = parseInt(checkbox.dataset.taskIndex, 10);
+          vscode.postMessage({ type: 'toggleTask', id: n.id, task: taskIdx });
+          return;
+        }
+        const link = e.target.closest('.node-link');
+        if (link) {
+          e.stopPropagation();
+          e.preventDefault();
+          const href = link.dataset.href || link.getAttribute('href');
+          if (href) vscode.postMessage({ type: 'openLink', href });
+          return;
+        }
+      };
+      el.ondblclick = e => {
+        if (e.target.closest('.task-checkbox') || e.target.closest('.node-link')) return;
+        e.stopPropagation();
+        selectedNodeIds.clear();
+        selectedNodeIds.add(n.id);
+        selectedEdgeId = null;
+        highlightSelection();
+        startInlineNodeEdit(n, el, e.target);
+      };
       el.querySelector('.resizer').onpointerdown = re => { re.stopPropagation(); re.preventDefault(); resizing = { id: n.id, el, startX: re.clientX, startY: re.clientY, origW: el.offsetWidth, origH: el.offsetHeight }; };
       el.querySelectorAll('.port').forEach(port => {
         port.onpointerdown = pe => {
@@ -85,6 +110,16 @@ export function getCanvasRenderingScript(): string {
           const sy = start.y;
           const sourceEndpoint = pType === 'top' ? { kind: 'node', nodeId: n.id, xRatio: 0.5, yRatio: 0 } : pType === 'right' ? { kind: 'node', nodeId: n.id, xRatio: 1, yRatio: 0.5 } : pType === 'bottom' ? { kind: 'node', nodeId: n.id, xRatio: 0.5, yRatio: 1 } : { kind: 'node', nodeId: n.id, xRatio: 0, yRatio: 0.5 };
           connecting = { sourceNodeId: n.id, sourceEndpoint, sourceDirection: pType, startX: sx, startY: sy, currentPointerPosition: start, currentRoute: [start] }; tempWire.style.display = 'block'; tempWire.setAttribute('d', 'M ' + sx + ' ' + sy);
+        };
+      });
+      el.querySelectorAll('.node-img').forEach(img => {
+        img.onload = () => {
+          const minH = getNodeMinimumHeight(el);
+          if (n.height < minH) {
+            n.height = minH;
+            el.style.height = minH + 'px';
+            updateEdgesForNodes(new Set([n.id]));
+          }
         };
       });
       nodes.append(el);

@@ -354,13 +354,160 @@ export function getCanvasStyles(): string {
       flex: 1;
     }
     .node-content {
-      padding: 5px 10px 8px;
+      padding: 6px 10px 8px;
       font-size: 11px;
-      line-height: 1.4;
-      color: var(--muted);
+      line-height: 1.45;
+      color: color-mix(in srgb, var(--ink) 88%, transparent);
       word-break: break-word;
       flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 320px;
+    }
+    .node-content::-webkit-scrollbar { width: 4px; }
+    .node-content::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 2px; }
+
+    .node-paragraph { margin: 0 0 5px 0; }
+    .node-paragraph:last-child { margin-bottom: 0; }
+    .node-h3, .node-h4, .node-h5, .node-h6 {
+      font-weight: 600;
+      color: var(--ink);
+      margin: 5px 0 2px 0;
+    }
+    .node-h3 { font-size: 12px; }
+    .node-h4 { font-size: 11px; }
+    .node-blockquote {
+      margin: 4px 0;
+      padding: 2px 0 2px 8px;
+      border-left: 2.5px solid var(--node-color);
+      color: var(--muted);
+      font-style: italic;
+    }
+    .node-list {
+      margin: 2px 0 5px 14px;
+      padding: 0;
+      line-height: 1.4;
+    }
+    .node-list li { margin-bottom: 2px; }
+    .node-task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin: 3px 0;
+      line-height: 1.35;
+      user-select: text;
+    }
+    .node-task-item.completed .task-text {
+      text-decoration: line-through;
+      opacity: 0.55;
+    }
+    .task-checkbox {
+      cursor: pointer;
+      margin: 2px 0 0 0;
+      accent-color: var(--focus);
+      flex-shrink: 0;
+    }
+    .inline-code {
+      background: color-mix(in srgb, var(--ink) 12%, transparent);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'Cascadia Code', Consolas, monospace;
+      font-size: 10px;
+      color: var(--ink);
+    }
+    .node-code-block {
+      background: color-mix(in srgb, var(--panel) 92%, #000 8%);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin: 5px 0;
+      overflow-x: auto;
+      font-family: 'Cascadia Code', Consolas, monospace;
+      font-size: 10px;
+      line-height: 1.35;
+      color: var(--ink);
+      user-select: text;
+    }
+    .node-code-block code { font-family: inherit; font-size: inherit; }
+    .node-image-container {
+      margin: 5px 0;
+      border-radius: 6px;
       overflow: hidden;
+      background: rgba(0, 0, 0, 0.18);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-width: 100%;
+    }
+    .node-img {
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      border-radius: 4px;
+      image-rendering: auto;
+    }
+    .node-img.img-error {
+      padding: 8px;
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .node-link {
+      color: var(--focus);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .node-link:hover { text-decoration: underline; }
+    .node-tag {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 9.5px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--focus) 18%, transparent);
+      color: var(--focus);
+      font-weight: 500;
+      margin: 1px 2px;
+    }
+
+    /* Inspector Markdown Toolbar */
+    .md-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+      background: color-mix(in srgb, var(--panel) 90%, transparent);
+      padding: 3px 4px;
+      border-radius: 6px;
+      border: 1px solid var(--rule);
+    }
+    .md-btn {
+      padding: 2px 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .md-btn:hover {
+      background: var(--hover-bg);
+      color: var(--focus);
+    }
+    .md-preview-pane {
+      display: none;
+      padding: 8px;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      background: var(--input-bg);
+      font-size: 11px;
+      line-height: 1.4;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 4px;
     }
 
     /* Shape Customizations */

@@ -7,6 +7,7 @@ import { getCanvasNodeEditingScript } from './canvasNodeEditing';
 import { getCanvasInteractionsScript } from './canvasInteractions';
 import { getCanvasRenderingScript } from './canvasRendering';
 import { getCanvasUiControlsScript } from './canvasUiControls';
+import { getCanvasMarkdownRendererScript } from './canvasMarkdownRenderer';
 
 export function getCanvasScript(data: string): string {
   return `
@@ -93,6 +94,7 @@ export function getCanvasScript(data: string): string {
     ${getCanvasInspectorScript()}
     ${getCanvasNodeEditingScript()}
     ${getCanvasInteractionsScript()}
+    ${getCanvasMarkdownRendererScript()}
     ${getCanvasRenderingScript()}
 
     function applyNodeDragPosition(point) {
