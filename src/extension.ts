@@ -2,18 +2,21 @@ import * as vscode from 'vscode';
 import { MarkdownGraphEditorProvider } from './providers/MarkdownGraphEditorProvider';
 import { registerStorageMigrationCommands } from './commands/StorageMigrationCommands';
 import { registerFileLifecycleWatcher } from './storage/FileLifecycleWatcher';
-import { registerMarkdownGraphTool } from './ai/MarkdownGraphTool';
+import { registerCanvasExplorer } from './explorer/CanvasExplorer';
 
 // Kích hoạt tiện ích mở rộng Markdown Graph Studio
 export function activate(context: vscode.ExtensionContext): void {
-  context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, new MarkdownGraphEditorProvider()));
+  const openCanvas = (uri: vscode.Uri): Thenable<unknown> => vscode.commands.executeCommand('vscode.openWith', uri, MarkdownGraphEditorProvider.viewType);
+  const explorer = registerCanvasExplorer(context, openCanvas);
+  const editorProvider = new MarkdownGraphEditorProvider((document) => explorer.trackDocument(document));
+  context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, editorProvider));
   context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'markdown') {
       vscode.window.showInformationMessage('Open a Markdown file before using Markdown Graph Studio.');
       return;
     }
-    await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, MarkdownGraphEditorProvider.viewType);
+    await openCanvas(editor.document.uri);
   }));
   context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openSideBySide', async () => {
     const editor = vscode.window.activeTextEditor;
@@ -27,7 +30,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerStorageMigrationCommands(context);
   registerFileLifecycleWatcher(context);
-  registerMarkdownGraphTool(context);
 }
 
 // Hủy kích hoạt tiện ích mở rộng

@@ -5,7 +5,7 @@ import { nodeIconIds } from '../model/nodeIcons';
 import { deleteEdgeDocument, deleteNodeDocument } from '../parser/GraphDeletion';
 import { captureGraphSelection, deleteGraphSelection, pasteGraphSelection, type GraphClipboard } from '../parser/GraphClipboard';
 import { parseMarkdownGraph } from '../parser/MarkdownGraphParser';
-import { appendEdge, applyTextEdits, createNodeSection, deleteRange, serializeEdge, updateCanvasMeta, updateNodeSection } from '../parser/MarkdownGraphSerializer';
+import { appendEdge, applyTextEdits, createNodeSection, serializeEdge, updateCanvasMeta, updateNodeSection } from '../parser/MarkdownGraphSerializer';
 import { updateNodeDocument } from '../parser/NodeDocumentUpdater';
 import { applyMetaPatch, buildDuplicateNodeEdits } from '../parser/NodeDuplication';
 import { canvasHtml } from '../webview/canvasHtml';
@@ -18,6 +18,7 @@ import { hydrateGraphWithStorageMode, type StorageMode } from '../storage/Hydrat
 import { removeEdgeState, removeNodeState, renameNodeState, setNodeCollapsedState } from '../state/CanvasStateReducer';
 import { updateNodeContentFromMessage } from './NodeContentMessages';
 import { collectGraphDiagnostics } from '../validation/GraphValidator';
+import { FULL_GRAPH_TEMPLATE } from '../templates/fullGraphTemplate';
 import { clearGraphDiagnostics, mapGraphDiagnostics, publishGraphDiagnostics, type DiagnosticCollectionLike, type MappedGraphDiagnostic } from './GraphDiagnosticsPublisher';
 
 type CanvasMessage = { type: string; editId?: string; [key: string]: unknown };
@@ -30,6 +31,8 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   private graphDiagnosticCollection = vscode.languages.createDiagnosticCollection('Markdown Graph Studio');
   private graphClipboard: GraphClipboard | null = null;
   private clipboardPasteCount = 0;
+
+  constructor(private readonly onDocumentOpened?: (document: vscode.TextDocument) => Thenable<void> | void) {}
 
   // View cấu trúc tối thiểu của DiagnosticCollection cho publisher thuần (vscode nạp chồng set nên cần cast)
   private get diagnosticCollectionView(): DiagnosticCollectionLike<vscode.Uri, vscode.Diagnostic> {
@@ -53,6 +56,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
 
   // Khởi tạo và liên kết custom editor với webview panel
   public async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
+    await this.onDocumentOpened?.(document);
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
     const docDir = vscode.Uri.joinPath(document.uri, '..');
     const localRoots = [docDir.fsPath, ...(folder ? [folder.uri.fsPath] : [])];
@@ -125,6 +129,10 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
         await this.savePng(document, message.dataUrl);
         return;
       }
+      if (message.type === 'createTemplate') {
+        await this.createTemplate(document);
+        return;
+      }
       if (message.type === 'undo' || message.type === 'redo') {
         this.editQueue = this.editQueue.then(async () => {
           await vscode.commands.executeCommand(message.type);
@@ -178,6 +186,19 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     if (!target) return;
     await vscode.workspace.fs.writeFile(target, Buffer.from(match[1], 'base64'));
     void vscode.window.showInformationMessage(`Exported ${target.path.split('/').pop() ?? 'graph.png'}.`);
+  }
+
+  private async createTemplate(document: vscode.TextDocument): Promise<void> {
+    const defaultPath = document.uri.path.replace(/[^/]+$/, 'graph-template.md');
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: document.uri.with({ path: defaultPath }),
+      filters: { Markdown: ['md'] },
+      saveLabel: 'Create Template',
+      title: 'Create Markdown Graph Template',
+    });
+    if (!target) return;
+    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(FULL_GRAPH_TEMPLATE));
+    await vscode.commands.executeCommand('vscode.openWith', target, MarkdownGraphEditorProvider.viewType);
   }
 
   private async removeNodesFromSidecar(uri: vscode.Uri, nextText: string, ids: ReadonlySet<string>): Promise<void> {

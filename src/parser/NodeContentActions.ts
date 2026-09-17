@@ -1,6 +1,6 @@
 import type { GraphNode } from '../model/graphTypes';
 import type { NodeContentPayload } from '../model/contentPayloads';
-import { createTaskMarkdown, insertTaskAfterLastTask, taskFenceMask } from '../nodes/TaskNode';
+import { insertTaskAfterLastTask, taskFenceMask } from '../nodes/TaskNode';
 export { createTaskMarkdown, deleteTask, insertTaskAfterLastTask, toggleTask, updateTaskText } from '../nodes/TaskNode';
 import { applyTextEdits, createNodeSection, updateNodeSection, type TextEdit } from './MarkdownGraphSerializer';
 
@@ -42,6 +42,10 @@ export function createQuoteMarkdown(text: string): string {
   return text.split(/\r?\n/).map((line) => `> ${line}`.trimEnd()).join('\n');
 }
 
+export function createListItemMarkdown(text: string): string {
+  return `- ${text.replace(/\r?\n/g, ' ').trim()}`;
+}
+
 export function createCodeBlock(language: string, code: string): string {
   const markerLength = Math.max(3, longestBacktickRun(code) + 1);
   const marker = '`'.repeat(markerLength);
@@ -73,6 +77,7 @@ function renderBlock(payload: NodeContentPayload): string {
   switch (payload.kind) {
     case 'image': return createImageMarkdown(payload.alt, payload.src);
     case 'link': return createLinkMarkdown(payload.label, payload.href);
+    case 'list': return createListItemMarkdown(payload.text);
     case 'code': return createCodeBlock(payload.language, payload.code);
     case 'quote': return createQuoteMarkdown(payload.text);
     default: throw new Error(`Unsupported content kind: ${(payload as NodeContentPayload).kind}`);

@@ -1,10 +1,11 @@
-export type EditableBlockKind = 'paragraph' | 'quote' | 'code' | 'codeLanguage';
+export type EditableBlockKind = 'paragraph' | 'quote' | 'listItem' | 'code' | 'codeLanguage';
 
 export function updateMarkdownBlock(content: string, kind: EditableBlockKind, targetIndex: number, value: string): string {
   if (!Number.isInteger(targetIndex) || targetIndex < 0) return content;
   const lines = content.split('\n');
   let paragraphIndex = 0;
   let quoteIndex = 0;
+  let listItemIndex = 0;
   let codeIndex = 0;
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -28,6 +29,18 @@ export function updateMarkdownBlock(content: string, kind: EditableBlockKind, ta
         return lines.join('\n');
       }
       quoteIndex += 1;
+      continue;
+    }
+
+    const listItem = /^(\s*(?:[-*]|\d+\.)\s+)(.*)$/.exec(lines[index]);
+    if (listItem && !/^\[[ xX]\]\s/.test(listItem[2])) {
+      if (kind === 'listItem' && listItemIndex === targetIndex) {
+        const nextValue = singleLine(value);
+        if (!nextValue) lines.splice(index, 1);
+        else lines[index] = `${listItem[1]}${nextValue}`;
+        return lines.join('\n');
+      }
+      listItemIndex += 1;
       continue;
     }
 

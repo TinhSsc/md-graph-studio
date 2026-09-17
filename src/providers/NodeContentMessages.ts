@@ -29,5 +29,5 @@ function numberField(value: unknown): number | undefined {
 }
 
 function isBlockKind(value: unknown): value is EditableBlockKind {
-  return value === 'paragraph' || value === 'quote' || value === 'code' || value === 'codeLanguage';
+  return value === 'paragraph' || value === 'quote' || value === 'listItem' || value === 'code' || value === 'codeLanguage';
 }

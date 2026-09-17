@@ -10,6 +10,7 @@ export const CANVAS_INTERACTION_CONFIG = {
     interactiveControls: [
       '.task-checkbox',
       '.task-delete-btn',
+      '.list-delete-btn',
       '.node-link',
       'button',
       'input',

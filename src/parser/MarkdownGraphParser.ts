@@ -1,5 +1,5 @@
 import {
-  arrowTypes, type ArrowType, type CanvasMeta, type GraphDiagnostic, type GraphDocument,
+  arrowTypes, type CanvasMeta, type GraphDiagnostic, type GraphDocument,
   defaultNodeHeight, defaultNodeWidth, type GraphEdge, type GraphNode, lineStyles, nodeShapes, ports,
 } from '../model/graphTypes';
 import { uniqueNodeTitle } from '../model/nodeIdentity';

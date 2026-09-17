@@ -24,19 +24,23 @@ Detailed content of the node goes here...
 
 ### Mandatory Rules:
 1. **Unique Node ID**: Always specify an explicit ID in the heading using `{#unique-node-id}`. Use lowercase letters, digits, and hyphens (e.g., `{#node-auth}`, `{#api-gateway}`, `{#db-primary}`).
-2. **Node Shape (`shape` attribute)**:
-   - `rounded-rectangle`: Soft rounded rectangle (default; best for services, generic components, application modules).
-   - `rectangle`: Sharp rectangle (suitable for Gateways, Controllers, System Boundaries).
-3. **Node Color Palette (`color` attribute)**:
-   - `blue`: Primary client-facing apps, Web UI, Mobile clients, Frontend layer.
-   - `purple`: Routers, Reverse proxies, API Gateways, Middleware orchestrators.
-   - `green`: Core business microservices, Business logic handlers, Successful terminal states.
-   - `yellow`: Authentication, Authorization, Security vaults, Inspection checkpoints.
-   - `red`: Payment gateways, Sensitive operations, Danger zones, Error handlers.
-   - `gray`: Utility workers, Background daemons, Logging, Telemetry collectors.
+2. **Node Shape (`shape` attribute)** â€” free visual choice; the mapping below is an OPTIONAL convention, never a rule. Do not assume or enforce meaning from a shape:
+   - `rounded-rectangle`: Soft rounded rectangle (default for services, generic components, application modules).
+   - `rectangle`: Sharp rectangle (often used for Gateways, Controllers, System Boundaries).
+3. **Node Color Palette (`color` attribute)** â€” free visual choice with no enforced meaning. Common conventions some authors follow:
+   - `blue`: Client-facing apps, Web UI, Mobile clients, Frontend layer.
+   - `purple`: Routers, Reverse proxies, API Gateways, Middleware.
+   - `green`: Core business services, Business logic handlers.
+   - `yellow`: Authentication, Authorization, Security checkpoints.
+   - `red`: Payment gateways, Sensitive operations, Error handlers.
+   - `gray`: Utility workers, Background daemons, Logging, Telemetry.
 4. **State Flags**:
    - `locked=true`: Locks the position of fixed infrastructure nodes (e.g., database clusters).
    - `collapsed=true`: Collapses the node card body when containing lengthy documentation.
+5. **Custom Icon (`icon` attribute, optional)**: assigns a quick visual icon to the node header. Value must be one of the built-in icon ids (e.g. `book`, `database`, `server`, `cloud`, `user`, `users`, `shield`, `key`, `globe`, `mail`, `bell`, `star`, `flag`, `zap`, `settings`, `cpu`, `terminal`, `file-text`, `folder`, `image`, `link`, `git-branch`, `bug`, `alert-triangle`, `check-circle`, `clock`, `dollar-sign`). Unknown or missing ids use the neutral `file-text` icon:
+   ```markdown
+   <!-- graph-node: shape=rectangle; color=blue; icon=database -->
+   ```
 
 ---
 
@@ -91,6 +95,27 @@ AI models can include markdown elements inside each node body:
   ```markdown
   [API Reference Documentation](https://api.example.com/docs)
   ```
+- **Inline Emphasis & Case Transforms** (rendered on canvas; the Markdown source stays untouched):
+  ```markdown
+  **bold**, *italic*, _italic_, __bold__, ~~strikethrough~~
+  ==highlighted text==, ^^UPPERCASE RENDER^^, %%lowercase render%%
+  ```
+  - `^^text^^` renders as uppercase and `%%text%%` as lowercase via CSS transform â€” keep the original casing in the source.
+  - `==text==` renders as a highlighted mark.
+  - Underscore emphasis (`_italic_`, `__bold__`) only applies at word boundaries; `snake_case` stays literal.
+- **Tables (GFM)** with optional column alignment (`---`, `:---:`, `---:`); malformed tables fall back to plain text:
+  ```markdown
+  | Service | Port | Status |
+  |---------|:----:|-------:|
+  | API     | 8080 |   up   |
+  ```
+- **Horizontal Rule** (`---` on its own line) and **Nested Lists** (2 spaces per level, max depth 3):
+  ```markdown
+  ---
+  - Level 1
+    - Level 2
+  ```
+- **Bare URL Autolinks**: plain `https://example.com` URLs become clickable links automatically.
 
 ---
 
@@ -130,8 +155,9 @@ Primary business workflow orchestration microservice.
 - [[node-db|Read / Write State]] <!-- graph-edge: arrow=forward; line=solid; from=bottom; to=top -->
 
 ## Database Cluster {#node-db}
-<!-- graph-node: shape=rounded-rectangle; color=blue; collapsed=false; locked=true -->
+<!-- graph-node: shape=rounded-rectangle; color=blue; icon=database; collapsed=false; locked=true -->
 Multi-AZ PostgreSQL cluster with Redis cache.
 
 Tags: #database #postgres #redis #persistence
 ```
+

@@ -201,6 +201,14 @@ export function getCanvasRenderingScript(): string {
           vscode.postMessage({ type: 'deleteTask', id: n.id, taskIndex: taskIdx });
           return;
         }
+        const listDeleteBtn = e.target.closest('.list-delete-btn');
+        if (listDeleteBtn) {
+          e.stopPropagation();
+          e.preventDefault();
+          const listIndex = parseInt(listDeleteBtn.dataset.listIndex, 10);
+          vscode.postMessage({ type: 'updateMarkdownBlock', id: n.id, blockKind: 'listItem', blockIndex: listIndex, text: '' });
+          return;
+        }
         const link = e.target.closest('.node-link');
         if (link) {
           e.stopPropagation();

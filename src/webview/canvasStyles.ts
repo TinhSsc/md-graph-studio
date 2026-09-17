@@ -534,6 +534,34 @@ export function getCanvasStyles(): string {
       line-height: 1.4;
     }
     .node-list li { margin-bottom: 2px; }
+    .list-delete-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 4px;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      opacity: 0;
+    }
+    .node-list li:hover > .list-delete-btn,
+    .list-delete-btn:focus-visible { opacity: 0.75; }
+    .list-delete-btn:hover {
+      opacity: 1;
+      color: #ef4444;
+      background: color-mix(in srgb, #ef4444 15%, transparent);
+    }
+    .node-list-text[contenteditable='true'] {
+      display: inline-block;
+      min-width: 24px;
+      outline: none;
+      box-shadow: inset 0 -1.5px 0 var(--focus);
+    }
     .node-task-item {
       display: flex;
       align-items: center;

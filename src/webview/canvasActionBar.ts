@@ -140,6 +140,8 @@ export function getCanvasActionBarScript(): string {
           openPopover(action, nodeId);
         } else if (action === 'task') {
           dispatchContentAction('task', { kind: 'task', text: 'New task' }, nodeId);
+        } else if (action === 'list') {
+          dispatchContentAction('list', { kind: 'list', text: 'New item' }, nodeId);
         } else if (action === 'quote') {
           dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId);
         } else if (action === 'lock') {

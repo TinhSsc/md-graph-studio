@@ -35,6 +35,7 @@ export function getCanvasMarkdownRendererScript(): string {
       let taskIndex = 0;
       let paragraphIndex = 0;
       let quoteIndex = 0;
+      let listItemIndex = 0;
       let codeIndex = 0;
       let inTaskRun = false;
 
@@ -279,7 +280,9 @@ export function getCanvasMarkdownRendererScript(): string {
             html += '</li>';
             target.itemOpen = false;
           }
-          html += '<li>' + formatInline(listContent);
+          html += '<li><span class="node-list-text" data-edit-kind="listItem" data-edit-index="' + listItemIndex + '" data-raw="' + esc(encodeURIComponent(listContent)) + '">' + formatInline(listContent) + '</span>' +
+            '<button type="button" class="list-delete-btn" data-list-index="' + listItemIndex + '" title="Delete list item" aria-label="Delete list item">&times;</button>';
+          listItemIndex++;
           target.itemOpen = true;
           continue;
         }

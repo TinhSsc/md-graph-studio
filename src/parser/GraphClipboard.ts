@@ -1,4 +1,4 @@
-import type { CanvasMeta, CanvasNodeMeta, GraphDocument, GraphEdge, GraphNode } from '../model/graphTypes';
+import type { CanvasNodeMeta, GraphDocument, GraphEdge, GraphNode } from '../model/graphTypes';
 import { createNodeSection, serializeEdge } from './MarkdownGraphSerializer';
 import { deleteNodeDocument } from './GraphDeletion';
 import { parseMarkdownGraph } from './MarkdownGraphParser';

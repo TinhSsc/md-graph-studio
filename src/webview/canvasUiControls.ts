@@ -77,6 +77,8 @@ export function getCanvasUiControlsScript(): string {
     }, true);
 
     const addNodeButton = document.querySelector('#add');
+    const createTemplateButton = document.querySelector('#btn-create-template');
+    if (createTemplateButton) createTemplateButton.onclick = () => vscode.postMessage({ type: 'createTemplate' });
     const sidebarLeft = document.querySelector('#sidebar-left');
     document.querySelector('#toggle-sidebar-left').onclick = () => sidebarLeft.classList.add('collapsed');
     document.querySelector('#expand-sidebar-left').onclick = () => sidebarLeft.classList.remove('collapsed');

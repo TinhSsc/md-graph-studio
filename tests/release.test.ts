@@ -32,9 +32,19 @@ describe('release safety contract', () => {
     }
   });
 
-  describe('Phase 5 Quality Matrix Verification', () => {
-    const manager = new SidecarStorageManager();
+  it('contributes the canvas activity bar with recent canvases above outline', () => {
+    const manifest = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+    const container = manifest.contributes.viewsContainers.activitybar[0];
+    const views = manifest.contributes.views[container.id];
+    expect(container.id).toBe('markdownGraphStudio');
+    expect(views.map((view: { id: string }) => view.id)).toEqual([
+      'markdownGraphStudio.canvases',
+      'markdownGraphStudio.outline',
+    ]);
+    expect(manifest.contributes.viewsWelcome[0].contents).toContain('markdownGraphStudio.pickCanvas');
+  });
 
+  describe('Phase 5 Quality Matrix Verification', () => {
     it('Legacy compatibility: parses and layouts legacy fixture with embedded metadata', () => {
       const legacyMd = readFileSync(join(fixturesDir, 'legacy-embedded.md'), 'utf8');
       const parsed = parseMarkdownGraph(legacyMd);
