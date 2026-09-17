@@ -16,11 +16,13 @@ export const CANVAS_INTERACTION_CONFIG = {
       'select',
       'textarea',
       '.menu-item',
-      '.menu-field'
+      '.menu-field',
+      '.edge-label-group',
+      '.edge-inline-input'
     ],
     ports: ['.port'],
     resizers: ['.resizer'],
-    edgeHandles: ['.edge-segment-handle', '.edge-endpoint-handle'],
+    edgeHandles: ['.edge-segment-handle', '.edge-endpoint-handle', '.edge-segment-knob'],
     activeEditors: ['[contenteditable="true"]', '.node.editing [contenteditable="true"]'],
     nodeContainer: '.node',
     nodeTitle: '.node-title',

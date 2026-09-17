@@ -69,11 +69,17 @@ export function getCanvasScript(data: string): string {
     let activeNodeEditor = null;
     let saveViewportTimer = null;
 
-    let pan = {
-      x: graph.meta?.viewport?.x ?? 40,
-      y: graph.meta?.viewport?.y ?? 40,
-      zoom: graph.meta?.viewport?.zoom ?? 1
-    };
+    const savedState = (function() {
+      try { return vscode.getState(); } catch(e) { return null; }
+    })();
+
+    let pan = (savedState && savedState.pan && typeof savedState.pan.x === 'number')
+      ? { x: savedState.pan.x, y: savedState.pan.y, zoom: savedState.pan.zoom || 1 }
+      : {
+          x: graph.meta?.viewport?.x ?? 40,
+          y: graph.meta?.viewport?.y ?? 40,
+          zoom: graph.meta?.viewport?.zoom ?? 1
+        };
 
     const esc = v => String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
     const findNode = id => graph.nodes.find(n => n.id === id);
@@ -85,16 +91,28 @@ export function getCanvasScript(data: string): string {
       canvas.style.backgroundPosition = (pan.x % size) + 'px ' + (pan.y % size) + 'px';
       canvas.style.backgroundSize = size + 'px ' + size + 'px';
       zoomVal.textContent = Math.round(pan.zoom * 100) + '%';
+      try {
+        const prev = vscode.getState() || {};
+        vscode.setState({ ...prev, pan: { x: pan.x, y: pan.y, zoom: pan.zoom } });
+      } catch {}
+    }
+
+    function flushSaveViewport() {
+      if (saveViewportTimer !== null) {
+        clearTimeout(saveViewportTimer);
+        saveViewportTimer = null;
+      }
+      vscode.postMessage({
+        type: 'saveViewport',
+        viewport: { x: Math.round(pan.x), y: Math.round(pan.y), zoom: Math.round(pan.zoom * 100) / 100 }
+      });
     }
 
     function scheduleSaveViewport() {
       clearTimeout(saveViewportTimer);
       saveViewportTimer = setTimeout(() => {
-        vscode.postMessage({
-          type: 'saveViewport',
-          viewport: { x: Math.round(pan.x), y: Math.round(pan.y), zoom: Math.round(pan.zoom * 100) / 100 }
-        });
-      }, 600);
+        flushSaveViewport();
+      }, 200);
     }
 
     ${getCanvasInteractionConfigScript()}
@@ -479,9 +497,20 @@ export function getCanvasScript(data: string): string {
       render();
     }
 
+    window.addEventListener('beforeunload', () => {
+      try {
+        const prev = vscode.getState() || {};
+        vscode.setState({ ...prev, pan: { x: pan.x, y: pan.y, zoom: pan.zoom } });
+      } catch {}
+      flushSaveViewport();
+    });
+
     render();
 
-    if (!graph.meta?.viewport || (graph.meta.viewport.x === 0 && graph.meta.viewport.y === 0 && graph.meta.viewport.zoom === 1)) {
+    const hasPersistedState = Boolean(savedState && savedState.pan && typeof savedState.pan.x === 'number');
+    if (hasPersistedState) {
+      view();
+    } else if (!graph.meta?.viewport || (graph.meta.viewport.x === 0 && graph.meta.viewport.y === 0 && graph.meta.viewport.zoom === 1)) {
       setTimeout(() => fitToView(70, false), 35);
     } else {
       pan = { ...graph.meta.viewport };

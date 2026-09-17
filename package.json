@@ -28,6 +28,11 @@
           "enum": ["dot-md-graph-json", "dot-graph-json"],
           "default": "dot-md-graph-json",
           "description": "Naming convention for sidecar files: 'foo.md.graph.json' or 'foo.graph.json'."
+        },
+        "markdownGraphStudio.autoGenerateAiInstructions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Tự động tạo và duy trì file hướng dẫn MD_GRAPH_AI_INSTRUCTIONS.md trong workspace để AI Agents tuân thủ quy chuẩn cú pháp đồ thị."
         }
       }
     },

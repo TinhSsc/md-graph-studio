@@ -46,6 +46,16 @@ export function getCanvasEdgeSegmentsScript(): string {
           document.body.classList.add('adjusting-edge');
         };
         edgeHandlesGroup.append(handle);
+
+        const mid = { x: Math.round((start.x + point.x) / 2), y: Math.round((start.y + point.y) / 2) };
+        const knob = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        knob.setAttribute('cx', mid.x);
+        knob.setAttribute('cy', mid.y);
+        knob.setAttribute('r', '4');
+        knob.setAttribute('class', 'edge-segment-knob ' + (horizontal ? 'horizontal' : 'vertical'));
+        knob.setAttribute('title', 'Kéo để bẻ dàn đường nối');
+        knob.onpointerdown = handle.onpointerdown;
+        edgeHandlesGroup.append(knob);
       });
     }
   `;

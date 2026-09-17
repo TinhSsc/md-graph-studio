@@ -282,20 +282,66 @@ export function getCanvasStyles(): string {
     }
     .edge-segment-handle {
       stroke: transparent;
-      stroke-width: 7;
+      stroke-width: 9;
       stroke-linecap: round;
       opacity: 1;
       vector-effect: non-scaling-stroke;
       transition: opacity 0.12s, stroke-width 0.12s;
+      cursor: grab;
     }
-    .edge-segment-handle:hover, body.adjusting-edge .edge-segment-handle { stroke: var(--focus); opacity: 0.9; stroke-width: 9; }
+    .edge-segment-handle:hover, body.adjusting-edge .edge-segment-handle { stroke: var(--focus); opacity: 0.8; stroke-width: 10; cursor: grabbing; }
     .edge-segment-handle.horizontal { cursor: ns-resize; }
     .edge-segment-handle.vertical { cursor: ew-resize; }
-    .label {
-      font-size: 11px;
-      fill: var(--ink);
-      cursor: pointer;
+    .edge-segment-knob {
+      fill: var(--card-bg, #22252a);
+      stroke: var(--focus, #4a98e5);
+      stroke-width: 2;
+      cursor: grab;
       pointer-events: all;
+      transition: transform 0.12s, fill 0.12s;
+    }
+    .edge-segment-knob:hover {
+      fill: var(--focus, #4a98e5);
+      stroke: #ffffff;
+      cursor: grabbing;
+    }
+    .edge-label-group {
+      cursor: pointer;
+      user-select: none;
+      pointer-events: all;
+    }
+    .edge-label-bg {
+      fill: var(--bg);
+      stroke: none;
+    }
+    .edge-label-group:hover .edge-label-text,
+    .edge-label-group.selected .edge-label-text {
+      fill: var(--focus, #4a98e5);
+      font-weight: 600;
+    }
+    .edge-label-text, .label {
+      font-size: 11px;
+      font-weight: 500;
+      fill: var(--ink, #e0e6ed);
+      pointer-events: none;
+      font-family: inherit;
+      transition: fill 0.12s;
+    }
+    .edge-inline-input {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 60;
+      background: var(--card-bg, #22252a);
+      color: var(--ink, #e0e6ed);
+      border: 1.5px solid var(--focus, #4a98e5);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      outline: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      min-width: 90px;
+      text-align: center;
       font-family: inherit;
     }
 

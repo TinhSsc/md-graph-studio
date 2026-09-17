@@ -239,5 +239,71 @@ export function getCanvasNodeEditingScript(): string {
         selection.addRange(range);
       }
     }
+
+    // Kích hoạt ô nhập nhanh để sửa hoặc thêm nhãn cạnh nối trực tiếp trên canvas
+    function startInlineEdgeLabelEdit(edge, geom) {
+      if (activeNodeEditor) activeNodeEditor.finish();
+      const existingInput = document.querySelector('.edge-inline-input');
+      if (existingInput) existingInput.remove();
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edge-inline-input';
+      input.value = edge.label || '';
+      input.placeholder = 'Nhập nhãn...';
+
+      const worldPoint = geom ? { x: geom.mx, y: geom.my } : { x: 0, y: 0 };
+      input.style.left = worldPoint.x + 'px';
+      input.style.top = worldPoint.y + 'px';
+
+      world.append(input);
+      input.focus();
+      input.select();
+
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        const newLabel = input.value.trim();
+        input.remove();
+        activeNodeEditor = null;
+        if (newLabel !== (edge.label || '')) {
+          edge.label = newLabel;
+          vscode.postMessage({
+            type: 'updateEdge',
+            id: edge.id,
+            label: newLabel,
+            arrow: edge.arrow || 'forward',
+            line: edge.line || 'solid'
+          });
+          render();
+        }
+      };
+
+      const cancel = () => {
+        if (finished) return;
+        finished = true;
+        input.remove();
+        activeNodeEditor = null;
+      };
+
+      input.onkeydown = event => {
+        event.stopPropagation();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          finish();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancel();
+        }
+      };
+
+      input.onpointerdown = event => event.stopPropagation();
+      input.onclick = event => event.stopPropagation();
+      input.ondblclick = event => event.stopPropagation();
+      input.onblur = finish;
+
+      activeNodeEditor = { finish, cancel };
+    }
   `;
 }

@@ -53,8 +53,35 @@ export function getCanvasGeometryScript(): string {
       const sourceDirection = endpointDirection(e.endpoints?.source) || e.fromPort || endpointDirection({ kind: 'node', xRatio: (p1.x - a.x) / aw, yRatio: (p1.y - a.y) / ah });
       const targetDirection = endpointDirection(e.endpoints?.target) || e.toPort || endpointDirection({ kind: 'node', xRatio: (p2.x - b.x) / bw, yRatio: (p2.y - b.y) / bh });
       const route = calculateConnectorRoute(p1, sourceDirection, p2, targetDirection, a.id, b.id, e.endpoints?.guide);
-      const midpoint = route[Math.floor(route.length / 2)] || { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      const midpoint = calculateRouteMidpoint(route);
       return { d: roundedOrthogonalPath(route), mx: midpoint.x, my: midpoint.y, p1, p2, route };
+    }
+
+    function calculateRouteMidpoint(route) {
+      if (!route || route.length === 0) return { x: 0, y: 0 };
+      if (route.length === 1) return { x: route[0].x, y: route[0].y };
+      let total = 0;
+      const segments = [];
+      for (let i = 0; i < route.length - 1; i++) {
+        const len = Math.hypot(route[i+1].x - route[i].x, route[i+1].y - route[i].y);
+        segments.push({ p1: route[i], p2: route[i+1], len });
+        total += len;
+      }
+      if (total === 0) return { x: route[0].x, y: route[0].y };
+      const half = total / 2;
+      let accum = 0;
+      for (const seg of segments) {
+        if (accum + seg.len >= half) {
+          const ratio = seg.len === 0 ? 0 : (half - accum) / seg.len;
+          return {
+            x: Math.round(seg.p1.x + (seg.p2.x - seg.p1.x) * ratio),
+            y: Math.round(seg.p1.y + (seg.p2.y - seg.p1.y) * ratio)
+          };
+        }
+        accum += seg.len;
+      }
+      const last = route[route.length - 1];
+      return { x: last.x, y: last.y };
     }
   `;
 }

@@ -7,8 +7,10 @@ export function getCanvasRenderingScript(): string {
         if (!geom) continue;
         const pathEl = document.querySelector('#edge-' + CSS.escape(e.id));
         if (pathEl) pathEl.setAttribute('d', geom.d);
-        const labelEl = document.querySelector('#label-' + CSS.escape(e.id));
-        if (labelEl) { labelEl.setAttribute('x', geom.mx); labelEl.setAttribute('y', geom.my); }
+        const labelGroup = document.querySelector('#label-group-' + CSS.escape(e.id));
+        if (labelGroup) {
+          labelGroup.setAttribute('transform', 'translate(' + geom.mx + ',' + geom.my + ')');
+        }
         const sourceHandle = document.querySelector('#endpoint-source-' + CSS.escape(e.id));
         const targetHandle = document.querySelector('#endpoint-target-' + CSS.escape(e.id));
         if (sourceHandle) { sourceHandle.setAttribute('cx', geom.p1.x); sourceHandle.setAttribute('cy', geom.p1.y); }
@@ -28,15 +30,63 @@ export function getCanvasRenderingScript(): string {
       p.setAttribute('class', 'edge ' + (e.line || 'solid') + (selectedEdgeId === e.id ? ' selected' : ''));
       if (e.arrow === 'forward' || e.arrow === 'both') p.setAttribute('marker-end', 'url(#arrow)');
       if (e.arrow === 'backward' || e.arrow === 'both') p.setAttribute('marker-start', 'url(#arrow-start)');
-      p.onclick = x => { x.stopPropagation(); selectedNodeIds.clear(); selectedEdgeId = e.id; render(); editorRight.classList.remove('collapsed'); };
+      p.onclick = x => {
+        x.stopPropagation();
+        selectedNodeIds.clear();
+        selectedEdgeId = e.id;
+        render();
+        editorRight.classList.remove('collapsed');
+      };
+      p.ondblclick = x => {
+        x.stopPropagation();
+        selectedNodeIds.clear();
+        selectedEdgeId = e.id;
+        render();
+        startInlineEdgeLabelEdit(e, geom);
+      };
       edgesGroup.append(p);
+
       if (e.label) {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.id = 'label-group-' + e.id;
+        g.setAttribute('class', 'edge-label-group' + (selectedEdgeId === e.id ? ' selected' : ''));
+        g.setAttribute('transform', 'translate(' + geom.mx + ',' + geom.my + ')');
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', 'edge-label-bg');
+        rect.setAttribute('rx', '5');
+        rect.setAttribute('ry', '5');
+
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.id = 'label-' + e.id; t.textContent = e.label;
-        t.setAttribute('x', geom.mx); t.setAttribute('y', geom.my);
-        t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'middle'); t.setAttribute('class', 'label');
-        t.onclick = x => { x.stopPropagation(); selectedNodeIds.clear(); selectedEdgeId = e.id; render(); editorRight.classList.remove('collapsed'); };
-        edgesGroup.append(t);
+        t.id = 'label-' + e.id;
+        t.textContent = e.label;
+        t.setAttribute('class', 'label edge-label-text');
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('dominant-baseline', 'central');
+
+        const charWidth = 7.2;
+        const boxWidth = Math.max(38, Math.round(e.label.length * charWidth + 18));
+        const boxHeight = 22;
+        rect.setAttribute('x', String(-boxWidth / 2));
+        rect.setAttribute('y', String(-boxHeight / 2));
+        rect.setAttribute('width', String(boxWidth));
+        rect.setAttribute('height', String(boxHeight));
+
+        g.append(rect);
+        g.append(t);
+
+        g.onclick = x => {
+          x.stopPropagation();
+          selectedNodeIds.clear();
+          selectedEdgeId = e.id;
+          render();
+          editorRight.classList.remove('collapsed');
+        };
+        g.ondblclick = x => {
+          x.stopPropagation();
+          startInlineEdgeLabelEdit(e, geom);
+        };
+        edgesGroup.append(g);
       }
       renderEndpointHandle(e, 'source', geom.p1);
       renderEndpointHandle(e, 'target', geom.p2);

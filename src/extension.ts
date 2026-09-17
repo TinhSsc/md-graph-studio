@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { MarkdownGraphEditorProvider } from './providers/MarkdownGraphEditorProvider';
 import { registerStorageMigrationCommands } from './commands/StorageMigrationCommands';
 import { registerFileLifecycleWatcher } from './storage/FileLifecycleWatcher';
+import { registerAiInstructionsManager } from './ai/AiInstructionsManager';
 
 // Kích hoạt tiện ích mở rộng Markdown Graph Studio
 export function activate(context: vscode.ExtensionContext): void {
@@ -26,6 +27,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerStorageMigrationCommands(context);
   registerFileLifecycleWatcher(context);
+  registerAiInstructionsManager(context);
 }
 
 // Hủy kích hoạt tiện ích mở rộng
