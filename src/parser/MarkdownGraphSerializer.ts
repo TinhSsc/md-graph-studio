@@ -6,8 +6,9 @@ export function applyTextEdits(text: string, edits: TextEdit[]): string {
   return [...edits].sort((a, b) => b.start - a.start).reduce((current, edit) => current.slice(0, edit.start) + edit.text + current.slice(edit.end), text);
 }
 
-export function serializeNodeAttributes(node: Pick<GraphNode, 'shape' | 'color' | 'collapsed' | 'locked'>): string {
-  return `<!-- graph-node: shape=${node.shape}; color=${node.color}; collapsed=${node.collapsed}; locked=${node.locked} -->`;
+export function serializeNodeAttributes(node: Pick<GraphNode, 'shape' | 'color' | 'collapsed' | 'locked' | 'icon'>): string {
+  const icon = typeof node.icon === 'string' && node.icon.trim() !== '' ? `; icon=${node.icon.trim()}` : '';
+  return `<!-- graph-node: shape=${node.shape}; color=${node.color}; collapsed=${node.collapsed}; locked=${node.locked}${icon} -->`;
 }
 
 export function serializeEdge(target: string, edge: Pick<GraphEdge, 'label' | 'arrow' | 'line' | 'path' | 'color' | 'fromPort' | 'toPort'>): string {
@@ -34,7 +35,7 @@ export function serializeEdge(target: string, edge: Pick<GraphEdge, 'label' | 'a
   return attributes.length > 0 ? `- ${link} <!-- graph-edge: ${attributes.join('; ')} -->` : `- ${link}`;
 }
 
-export function createNodeSection(node: Pick<GraphNode, 'title' | 'shape' | 'color' | 'collapsed' | 'locked' | 'content'> & { explicitId?: string }): string {
+export function createNodeSection(node: Pick<GraphNode, 'title' | 'shape' | 'color' | 'collapsed' | 'locked' | 'content' | 'icon'> & { explicitId?: string }): string {
   const content = node.content.trimEnd();
   const heading = node.explicitId ? `## ${node.title} {#${node.explicitId}}` : `## ${node.title}`;
   return `${heading}\n${serializeNodeAttributes(node)}\n${content}${content ? '\n\n' : '\n'}`;
@@ -48,7 +49,7 @@ export function updateCanvasMeta(text: string, meta: CanvasMeta): TextEdit {
     : { start: text.length, end: text.length, text: `${text.endsWith('\n') ? '\n' : '\n\n'}${comment}\n` };
 }
 
-export function updateNodeSection(text: string, node: GraphNode, changes: Pick<GraphNode, 'title' | 'content' | 'shape' | 'color' | 'collapsed' | 'locked'>): TextEdit {
+export function updateNodeSection(text: string, node: GraphNode, changes: Pick<GraphNode, 'title' | 'content' | 'shape' | 'color' | 'collapsed' | 'locked' | 'icon'>): TextEdit {
   if (!node.sourceRange) throw new Error('Cannot update a ghost node.');
   const sectionText = text.slice(node.sourceRange.start, node.sourceRange.end);
   let inFence = false;

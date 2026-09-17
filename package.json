@@ -11,7 +11,7 @@
   },
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Visualization", "Other"],
-  "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor"],
+  "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor", "onLanguageModelTool:markdownGraphStudio_create_markdownGraph"],
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
@@ -28,14 +28,43 @@
           "enum": ["dot-md-graph-json", "dot-graph-json"],
           "default": "dot-md-graph-json",
           "description": "Naming convention for sidecar files: 'foo.md.graph.json' or 'foo.graph.json'."
-        },
-        "markdownGraphStudio.autoGenerateAiInstructions": {
-          "type": "boolean",
-          "default": true,
-          "description": "Tự động tạo và duy trì file hướng dẫn MD_GRAPH_AI_INSTRUCTIONS.md trong workspace để AI Agents tuân thủ quy chuẩn cú pháp đồ thị."
         }
       }
     },
+    "languageModelTools": [{
+      "name": "markdownGraphStudio_create_markdownGraph",
+      "displayName": "Create Markdown Graph",
+      "toolReferenceName": "createMarkdownGraph",
+      "canBeReferencedInPrompt": true,
+      "icon": "$(type-hierarchy)",
+      "userDescription": "Create a Markdown Graph Studio diagram in the current workspace.",
+      "modelDescription": "Create or replace a Markdown Graph Studio .md diagram from structured nodes and edges, then open it in the graph editor. Use this when the user asks to create a diagram, graph, mind map, architecture map, dependency map, or flowchart. The tool writes the file itself; do not generate Markdown separately. Use stable kebab-case node IDs. Shapes are rounded-rectangle or rectangle. Colors are gray, blue, green, yellow, red, or purple.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["filePath", "nodes"],
+        "properties": {
+          "filePath": { "type": "string", "description": "Workspace-relative or absolute .md file path inside the current workspace." },
+          "title": { "type": "string", "description": "Optional document title." },
+          "nodes": { "type": "array", "minItems": 1, "items": {
+            "type": "object", "required": ["id", "title"], "properties": {
+              "id": { "type": "string", "description": "Unique stable kebab-case node ID." },
+              "title": { "type": "string", "description": "Visible node title." },
+              "content": { "type": "string", "description": "Optional Markdown body." },
+              "shape": { "type": "string", "enum": ["rounded-rectangle", "rectangle"] },
+              "color": { "type": "string", "enum": ["gray", "blue", "green", "yellow", "red", "purple"] },
+              "icon": { "type": "string", "description": "Optional semantic icon ID." }
+            }
+          }},
+          "edges": { "type": "array", "items": {
+            "type": "object", "required": ["source", "target"], "properties": {
+              "source": { "type": "string", "description": "Source node ID." },
+              "target": { "type": "string", "description": "Target node ID." },
+              "label": { "type": "string", "description": "Optional visible connection label." }
+            }
+          }}
+        }
+      }
+    }],
     "commands": [
       { "command": "markdownGraphStudio.openAsGraph", "title": "Markdown Graph Studio: Open as Graph" },
       { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side" },

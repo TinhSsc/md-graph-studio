@@ -3,10 +3,10 @@ import { parseMarkdownGraph } from '../src/parser/MarkdownGraphParser';
 
 describe('parseMarkdownGraph', () => {
   it('parses semantic attributes, links, metadata, and ghost nodes', () => {
-    const graph = parseMarkdownGraph(`# Overview\n\n## Start\n<!-- graph-node: shape=diamond; color=yellow -->\n- [[Finish|continue]] <!-- graph-edge: arrow=both; line=dashed; path=orthogonal; from=right; to=left -->\n\n<!-- canvas-meta\n{"version":1,"nodes":{},"groups":{},"viewport":{"x":0,"y":0,"zoom":1}}\n-->\n`);
+    const graph = parseMarkdownGraph(`# Overview\n\n## Start\n<!-- graph-node: shape=rectangle; color=yellow -->\n- [[Finish|continue]] <!-- graph-edge: arrow=both; line=dashed; path=orthogonal; from=right; to=left -->\n\n<!-- canvas-meta\n{"version":1,"nodes":{},"groups":{},"viewport":{"x":0,"y":0,"zoom":1}}\n-->\n`);
     expect(graph.preamble).toBe('# Overview\n\n');
     expect(graph.nodes).toHaveLength(2);
-    expect(graph.nodes[0]).toMatchObject({ title: 'Start', shape: 'diamond', color: 'yellow' });
+    expect(graph.nodes[0]).toMatchObject({ title: 'Start', shape: 'rectangle', color: 'yellow' });
     expect(graph.nodes[0]).toMatchObject({ x: 0, y: 0, width: 240, height: 160 });
     expect(graph.nodes[1]).toMatchObject({ title: 'Finish', ghost: true });
     expect(graph.edges[0]).toMatchObject({ source: 'Start', target: 'Finish', label: 'continue', arrow: 'both', line: 'dashed', path: 'orthogonal', fromPort: 'right', toPort: 'left' });

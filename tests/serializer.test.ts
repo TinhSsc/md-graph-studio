@@ -4,7 +4,7 @@ import { parseMarkdownGraph } from '../src/parser/MarkdownGraphParser';
 
 describe('MarkdownGraphSerializer', () => {
   it('serializes semantic node and edge syntax', () => {
-    expect(createNodeSection({ title: 'Start', shape: 'circle', color: 'blue', collapsed: false, locked: false, content: 'Hello' })).toContain('<!-- graph-node: shape=circle; color=blue; collapsed=false; locked=false -->');
+    expect(createNodeSection({ title: 'Start', shape: 'rectangle', color: 'blue', collapsed: false, locked: false, content: 'Hello' })).toContain('<!-- graph-node: shape=rectangle; color=blue; collapsed=false; locked=false -->');
     expect(serializeEdge('Finish', { label: 'next', arrow: 'forward', line: 'solid', path: 'orthogonal' })).toBe('- [[Finish|next]]');
     expect(serializeEdge('Finish', { label: 'next', arrow: 'forward', line: 'dashed', path: 'orthogonal' })).toBe('- [[Finish|next]] <!-- graph-edge: line=dashed -->');
   });
@@ -20,8 +20,8 @@ describe('MarkdownGraphSerializer', () => {
     const source = '# Overview\n\n## Start\nOld content\n\n## Finish\nDone\n';
     const graph = parseMarkdownGraph(source);
     const start = graph.nodes.find((node) => node.id === 'Start')!;
-    const updated = applyTextEdits(source, [updateNodeSection(source, start, { ...start, title: 'Start', shape: 'circle', color: 'blue', content: 'New content' })]);
-    expect(updated).toContain('<!-- graph-node: shape=circle; color=blue; collapsed=false; locked=false -->');
+    const updated = applyTextEdits(source, [updateNodeSection(source, start, { ...start, title: 'Start', shape: 'rectangle', color: 'blue', content: 'New content' })]);
+    expect(updated).toContain('<!-- graph-node: shape=rectangle; color=blue; collapsed=false; locked=false -->');
     expect(updated).toContain('# Overview');
     const nextStart = parseMarkdownGraph(updated).nodes.find((node) => node.id === 'Start')!;
     const connected = applyTextEdits(updated, [appendEdge(updated, nextStart, 'Finish')]);

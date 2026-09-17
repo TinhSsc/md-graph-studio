@@ -72,6 +72,26 @@ export function getCanvasStyles(): string {
       font-size: 11.5px;
     }
     .outline-list { flex: 1; overflow-y: auto; padding: 6px 4px; }
+    .sidebar-search-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--rule);
+      color: var(--muted);
+    }
+    .sidebar-search-row > svg { flex-shrink: 0; }
+    #search-box {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+      padding: 3px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      font-size: 11px;
+    }
+    #search-count { font-size: 9.5px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
     .outline-item {
       padding: 4px 6px;
       border-radius: 5px;
@@ -105,18 +125,49 @@ export function getCanvasStyles(): string {
       position: absolute;
       top: 12px;
       left: calc(155px + 14px);
-      height: 34px;
+      height: 40px;
       background: color-mix(in srgb, var(--panel) 88%, transparent);
       backdrop-filter: blur(10px);
       border: 1px solid var(--rule);
       border-radius: 8px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-      padding: 3px 6px;
+      padding: 4px;
       display: flex;
       align-items: center;
       gap: 4px;
       z-index: 25;
       transition: left 0.2s ease, transform 0.2s;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 30px;
+      padding: 1px 2px;
+      border-radius: 6px;
+      border: 1px solid var(--rule);
+      background: color-mix(in srgb, var(--ink) 5%, transparent);
+    }
+    #toolbar-top .toolbar-group > button {
+      height: 26px;
+      min-height: 26px;
+      margin: 0;
+    }
+    #toolbar-top .toolbar-group > .icon-btn {
+      width: 26px;
+      min-width: 26px;
+    }
+    #toolbar-top #add { padding: 0 8px; }
+    .menu-caret { display: inline-flex; margin-left: 1px; opacity: 0.65; }
+    .menu-caret svg { width: 9px; height: 9px; }
+    .picker-preview { display: inline-flex; align-items: center; }
+    .picker-preview svg { width: 12px; height: 12px; }
+    .color-dot-preview {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4a98e5;
+      box-shadow: 0 0 4px currentColor;
     }
     #sidebar-left.collapsed ~ #canvas-container #toolbar-top { left: 46px; }
     #toolbar-top.collapsed { transform: translateY(-55px); opacity: 0; pointer-events: none; }
@@ -136,23 +187,51 @@ export function getCanvasStyles(): string {
     }
     #sidebar-left.collapsed ~ #canvas-container #expand-toolbar-top { left: 46px; }
     #toolbar-top.collapsed ~ #expand-toolbar-top { display: inline-flex; }
-    #search-box {
-      width: 140px;
-      padding: 3px 7px;
-      border-radius: 5px;
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
-      font-size: 11px;
-    }
-    .toolbar-select {
-      width: 112px;
-      height: 26px;
-      padding: 2px 22px 2px 7px;
-      border-radius: 5px;
-      font-size: 10.5px;
-    }
-    .toolbar-select.color-select { width: 72px; }
     .divider { width: 1px; height: 15px; background: var(--rule); margin: 0 2px; }
+
+    /* Anchored dropdown menus for the quick toolbar (shape/color/arrange) */
+    .toolbar-dropdown {
+      position: fixed;
+      z-index: 95;
+      display: none;
+      flex-direction: column;
+      min-width: 150px;
+      padding: 4px;
+      background: color-mix(in srgb, var(--panel) 94%, transparent);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 11.5px;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: left;
+      text-transform: none;
+    }
+    .dropdown-item:hover { background: var(--hover-bg); }
+    .dropdown-item svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .dropdown-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
+    .toolbar-icon-menu { width: 196px; }
+    .toolbar-icon-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 28px);
+      gap: 3px;
+    }
+    .toolbar-icon-grid .icon-picker-item {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      justify-content: center;
+    }
+    .toolbar-icon-menu .icon-picker-none { justify-content: center; margin-top: 4px; }
 
     /* Right Note Editor Card */
     #editor-right {
@@ -266,6 +345,16 @@ export function getCanvasStyles(): string {
     }
     .edge:hover { stroke: var(--focus); stroke-width: 3.5; }
     .edge.selected { stroke: var(--focus); stroke-width: 4; }
+    /* Invisible wide hit target: enlarges the clickable band of an edge
+       without thickening the visible stroke. */
+    .edge-hit {
+      fill: none;
+      stroke: transparent;
+      stroke-width: 11;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+    .edge-hit:hover + .edge { stroke: var(--focus); stroke-width: 3.5; }
     .edge.temp {
       stroke: #4d90fe !important;
       stroke-width: 3px !important;
@@ -635,17 +724,6 @@ export function getCanvasStyles(): string {
     /* Shape Customizations */
     .node.rounded-rectangle { border-radius: 14px; }
     .node.rectangle { border-radius: 4px; }
-    .node.circle, .node.ellipse { border-radius: 26px; }
-    .node.diamond {
-      border-radius: 10px;
-      border-left-width: 3.5px;
-      border-left-color: var(--node-color);
-    }
-    .node.triangle {
-      border-radius: 8px;
-      border-top-width: 3.5px;
-      border-top-color: var(--node-color);
-    }
 
     /* Resizer corner grip at bottom-right */
     .resizer {
@@ -662,6 +740,9 @@ export function getCanvasStyles(): string {
       touch-action: none;
     }
     .node:hover .resizer, .node.selected .resizer { opacity: 0.85; }
+    /* Locked nodes: hide the resize grip so resizing cannot start */
+    .node.locked .resizer { display: none; }
+    .node.locked { cursor: default; }
 
     /* Connection Ports: Visible on hover */
     .port {

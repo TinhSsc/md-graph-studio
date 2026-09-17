@@ -1,12 +1,22 @@
 import type { GraphDocument } from '../model/graphTypes';
 import { getCanvasActionBarStyles } from './canvasActionBarStyles';
+import { getCanvasContentStyles } from './canvasContentStyles';
+import { getCanvasDiagnosticsStyles } from './canvasDiagnosticsStyles';
+import { getCanvasFormatStyles } from './canvasFormatStyles';
+import { getCanvasNodeIdentityStyles } from './canvasNodeIdentityStyles';
 import { getCanvasScript } from './canvasScript';
 import { getCanvasStyles } from './canvasStyles';
 import { getCanvasTemplate } from './canvasTemplate';
 
 export function canvasHtml(graph: GraphDocument): string {
   const data = JSON.stringify(graph).replace(/</g, '\\u003c');
-  const styles = getCanvasStyles() + getCanvasActionBarStyles();
+  const styles =
+    getCanvasStyles() +
+    getCanvasActionBarStyles() +
+    getCanvasContentStyles() +
+    getCanvasDiagnosticsStyles() +
+    getCanvasNodeIdentityStyles() +
+    getCanvasFormatStyles();
   const template = getCanvasTemplate();
   const script = getCanvasScript(data);
 

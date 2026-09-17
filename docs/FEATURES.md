@@ -4,7 +4,7 @@
 
 - Opens a Markdown file as a VS Code custom graph editor or alongside its text editor.
 - Treats every `##` section as a node and every wiki-link (`[[Target]]`) as an edge.
-- Supports rectangle, rounded rectangle, circle, ellipse, diamond, and triangle node shapes.
+- Supports rectangle and rounded rectangle node shapes.
 - Supports six node colors, editable titles and Markdown body content.
 - Uses compact toolbar defaults for new-node shape and color; the Note Editor can explicitly apply the current toolbar style to an existing node.
 - Creates, edits, and removes nodes and edges without replacing unrelated Markdown.
@@ -33,16 +33,18 @@ This split deliberately keeps the webview script in a single generated scope. It
 
 ## Recommended Markdown extensions
 
-These are proposed capabilities; they are not enabled yet.
+Rows marked **Enabled** ship in the current renderer; the rest are proposed for future work.
 
 | Capability | Markdown representation | Graph behavior |
 | --- | --- | --- |
-| Images | `![Alt text](./assets/diagram.png)` inside a node section | Render a safe thumbnail; click opens the VS Code file preview. Relative paths resolve against the current Markdown file. |
-| Node icon | `<!-- graph-node: icon=book -->` | Render a predefined icon in the node header; avoid arbitrary HTML/SVG injection. |
-| Tags | `#project #urgent` or `<!-- graph-tags: project,urgent -->` | Filter, color, and group nodes by tag. |
-| Collapsible sections | Markdown heading hierarchy (`###`) | Fold body content while retaining title and links. |
-| Code blocks | fenced Markdown blocks | Show a compact code preview, with a full editor in the inspector. |
-| Tables and lists | normal Markdown | Render a readable compact preview; keep the source untouched. |
+| Images | `![Alt text](./assets/diagram.png)` inside a node section | **Enabled** — safe thumbnail; click opens the VS Code file preview. Relative paths resolve against the current Markdown file. |
+| Node icon | `<!-- graph-node: icon=database -->` | **Enabled** — quick icon assignment from a built-in icon grid; unknown or missing ids use the neutral file icon. |
+| Tags | `#project #urgent` or `<!-- graph-tags: project,urgent -->` | Tags render as badges; filtering, coloring, and grouping are future work. |
+| Collapsible sections | `<!-- graph-node: collapsed=true -->` | **Enabled** — fold the node body on canvas; toggle from the node header chevron; persisted in canvas metadata. |
+| Code blocks | fenced Markdown blocks | **Enabled** — compact code preview with language label, editable in place. |
+| Tables and lists | normal Markdown | **Enabled** — tables render with column alignment; lists nest up to depth 3; the source stays untouched. |
+| Inline rich text | `**bold**`, `_italic_`, `==mark==`, format-bar buttons | **Enabled** — format bar (sidebar) toggles bold/italic/highlight on the text selection or whole node; the Markdown source stays readable. |
+| Document validation | none (parser + validator) | **Enabled** — diagnostics in the VS Code Problems panel plus an issues chip and node badges on canvas. |
 | Attachments | normal relative Markdown links | Show file type and open through VS Code. |
 | Groups | `<!-- graph-group: name=... -->` plus canvas metadata | Visually surround related nodes without altering node content. |
 | Edge routing | `path=orthogonal` plus canvas guide metadata | Add routing quality controls and multi-guide editing. |

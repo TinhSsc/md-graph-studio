@@ -7,6 +7,7 @@ import { isFiniteNumber } from './ContentActionRules';
 export interface CreateNodeOptions {
   shape: GraphNode['shape'];
   color: string;
+  icon?: string;
   content: string;
   x?: number;
   y?: number;
@@ -30,7 +31,7 @@ export function createNodeDocument(text: string, graph: GraphDocument, options: 
   const at = text.search(/\n?<!--\s*canvas-meta\s*\n/);
   const insertAt = at === -1 ? text.length : at;
   const prefix = at === -1 ? (text.endsWith('\n') ? '\n' : '\n\n') : '\n';
-  const section = createNodeSection({ title, explicitId, shape: options.shape, color: options.color, collapsed: false, locked: false, content: options.content });
+  const section = createNodeSection({ title, explicitId, shape: options.shape, color: options.color, icon: options.icon, collapsed: false, locked: false, content: options.content });
   let nextText = applyTextEdits(text, [{ start: insertAt, end: insertAt, text: prefix + section }]);
   let nextMeta: CanvasMeta | undefined = undefined;
 

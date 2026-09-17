@@ -66,9 +66,29 @@ export function getCanvasActionBarScript(): string {
 
       actionBar.style.display = 'flex';
       actionBar.dataset.nodeId = nodeId;
+      const isGhostNode = Boolean(node.ghost);
       actionBarButtons().forEach((button) => {
-        button.disabled = Boolean(node.locked);
-        button.setAttribute('aria-disabled', node.locked ? 'true' : 'false');
+        const action = button.getAttribute('data-action');
+        if (action === 'lock') {
+          button.disabled = isGhostNode;
+          button.setAttribute('aria-pressed', node.locked ? 'true' : 'false');
+          button.title = node.locked ? 'Unlock node' : 'Lock node';
+          button.setAttribute('aria-label', button.title);
+          button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+          return;
+        }
+        if (action === 'icon') {
+          button.disabled = isGhostNode;
+          button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+          return;
+        }
+        if (action === 'edit') {
+          button.title = isGhostNode ? 'Create node' : 'Edit node';
+          button.setAttribute('aria-label', button.title);
+        }
+        const disabled = isGhostNode ? (action !== 'edit' && action !== 'delete') : Boolean(node.locked);
+        button.disabled = disabled;
+        button.setAttribute('aria-disabled', disabled ? 'true' : 'false');
       });
       if (imageMenu) {
         imageMenu.classList.remove('open');
@@ -98,7 +118,7 @@ export function getCanvasActionBarScript(): string {
 
     document.addEventListener('pointerover', (event) => {
       const nodeEl = event.target && event.target.closest ? event.target.closest('.node') : null;
-      if (nodeEl && !nodeEl.classList.contains('ghost')) {
+      if (nodeEl) {
         const nodeId = nodeEl.id.replace('node-', '');
         if (nodeId !== actionBarNodeId) requestHoverActionBar(nodeId);
         return;
@@ -122,10 +142,24 @@ export function getCanvasActionBarScript(): string {
           dispatchContentAction('task', { kind: 'task', text: 'New task' }, nodeId);
         } else if (action === 'quote') {
           dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId);
+        } else if (action === 'lock') {
+          const node = findNode(nodeId);
+          if (node) {
+            const locked = !node.locked;
+            node.locked = locked;
+            vscode.postMessage({ type: 'toggleNodeLocked', id: nodeId, locked });
+            render();
+          }
+        } else if (action === 'icon') {
+          openIconPicker([nodeId], button);
         } else if (action === 'edit') {
           const node = findNode(nodeId);
-          const nodeEl = document.querySelector('#node-' + CSS.escape(nodeId));
-          if (node && nodeEl) startInlineNodeEdit(node, nodeEl);
+          if (node && node.ghost) {
+            vscode.postMessage({ type: 'updateNode', id: nodeId, title: node.title, shape: node.shape, color: node.color, content: '' });
+          } else {
+            const nodeEl = document.querySelector('#node-' + CSS.escape(nodeId));
+            if (node && nodeEl) startInlineNodeEdit(node, nodeEl);
+          }
         }
       });
     }

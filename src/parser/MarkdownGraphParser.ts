@@ -43,6 +43,7 @@ export function parseMarkdownGraph(text: string): GraphDocument {
       layer: index,
       collapsed: booleanValue(attributes.collapsed, false, diagnostics, heading.start, 'collapsed'),
       locked: booleanValue(attributes.locked, false, diagnostics, heading.start, 'locked'),
+      icon: optionalIcon(attributes.icon),
       ghost: false, sourceRange: { start: heading.start, end },
     };
   });
@@ -52,7 +53,7 @@ export function parseMarkdownGraph(text: string): GraphDocument {
   for (const node of nodes) {
     if (titles.has(node.id)) {
       const msg = node.explicitId ? `Duplicate node ID: ${node.id}` : `Duplicate node title: ${node.title}`;
-      diagnostics.push({ message: msg, offset: node.sourceRange?.start });
+      diagnostics.push({ message: msg, offset: node.sourceRange?.start, severity: 'error', code: 'MGS-E-103' });
       node.id = uniqueNodeTitle(node.id, '', titles);
     }
     titles.add(node.id);
@@ -119,6 +120,7 @@ function parseNodeBody(section: string, offset: number, diagnostics: GraphDiagno
   const firstLineEnd = section.indexOf('\n');
   const firstLine = firstLineEnd === -1 ? section : section.slice(0, firstLineEnd).replace(/\r$/, '');
   const match = nodeComment.exec(firstLine);
+  if (!match) pushMalformedCommentDiagnostic(section, offset, diagnostics);
   const attributes = match ? parseAttributes(match[1], diagnostics, offset) : {};
   const rawBody = match ? section.slice(firstLineEnd === -1 ? section.length : firstLineEnd + 1) : section;
 
@@ -134,6 +136,25 @@ function parseNodeBody(section: string, offset: number, diagnostics: GraphDiagno
   }
   const content = cleanLines.join('').trim();
   return { attributes, content };
+}
+
+function pushMalformedCommentDiagnostic(section: string, offset: number, diagnostics: GraphDiagnostic[]): void {
+  let lineStart = offset;
+  for (const line of section.split(/(?<=\n)/)) {
+    if (line.trim() === '') {
+      lineStart += line.length;
+      continue;
+    }
+    if (line.startsWith('<!--') && !nodeComment.test(line.replace(/\r$/, ''))) {
+      diagnostics.push({
+        message: 'Malformed graph-node comment (must be the first line: <!-- graph-node: key=value; -->)',
+        offset: lineStart,
+        severity: 'warning',
+        code: 'MGS-W-001',
+      });
+    }
+    return;
+  }
 }
 
 function parseEdges(
@@ -197,7 +218,7 @@ function parseAttributes(value: string, diagnostics: GraphDiagnostic[], offset: 
   const result: Attributes = {};
   for (const part of value.split(';')) {
     const [key, ...rest] = part.split('=');
-    if (!key?.trim() || rest.length === 0) { diagnostics.push({ message: `Invalid graph attribute: ${part.trim()}`, offset }); continue; }
+    if (!key?.trim() || rest.length === 0) { diagnostics.push({ message: `Invalid graph attribute: ${part.trim()}`, offset, severity: 'warning', code: 'MGS-W-101' }); continue; }
     result[key.trim()] = rest.join('=').trim();
   }
   return result;
@@ -206,7 +227,7 @@ function parseAttributes(value: string, diagnostics: GraphDiagnostic[], offset: 
 function enumValue<T extends readonly string[]>(value: string | undefined, allowed: T, fallback: T[number], diagnostics: GraphDiagnostic[], offset: number, name: string): T[number] {
   if (value === undefined) return fallback;
   if ((allowed as readonly string[]).includes(value)) return value as T[number];
-  diagnostics.push({ message: `Invalid ${name}: ${value}`, offset });
+  diagnostics.push({ message: `Invalid ${name}: ${value}`, offset, severity: 'warning', code: 'MGS-W-102' });
   return fallback;
 }
 
@@ -218,8 +239,14 @@ function booleanValue(value: string | undefined, fallback: boolean, diagnostics:
   if (value === undefined) return fallback;
   if (value === 'true') return true;
   if (value === 'false') return false;
-  diagnostics.push({ message: `Invalid ${name}: ${value}`, offset });
+  diagnostics.push({ message: `Invalid ${name}: ${value}`, offset, severity: 'warning', code: 'MGS-W-102' });
   return fallback;
+}
+
+function optionalIcon(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
 }
 
 function parseMeta(source: string, diagnostics: GraphDiagnostic[], offset: number): CanvasMeta | undefined {
@@ -228,7 +255,7 @@ function parseMeta(source: string, diagnostics: GraphDiagnostic[], offset: numbe
     if (value.version !== 1 || !value.nodes || !value.groups || !value.viewport) throw new Error('Missing required canvas-meta fields');
     return value as CanvasMeta;
   } catch (error) {
-    diagnostics.push({ message: `Invalid canvas-meta: ${(error as Error).message}`, offset });
+    diagnostics.push({ message: `Invalid canvas-meta: ${(error as Error).message}`, offset, severity: 'error', code: 'MGS-E-100' });
     return undefined;
   }
 }

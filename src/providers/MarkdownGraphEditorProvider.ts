@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
 import { autoLayout, layoutGraphDocument } from '../layout/AutoLayoutEngine';
-import { nodeColors, nodeShapes, type CanvasEdgeEndpoints, type CanvasMeta, type GraphEdge, type GraphNode, type LayoutDirection, type Port } from '../model/graphTypes';
+import { nodeColors, nodeShapes, type CanvasEdgeEndpoints, type CanvasMeta, type GraphDocument, type GraphEdge, type GraphNode, type LayoutDirection, type Port } from '../model/graphTypes';
+import { nodeIconIds } from '../model/nodeIcons';
 import { deleteEdgeDocument, deleteNodeDocument } from '../parser/GraphDeletion';
+import { captureGraphSelection, deleteGraphSelection, pasteGraphSelection, type GraphClipboard } from '../parser/GraphClipboard';
 import { parseMarkdownGraph } from '../parser/MarkdownGraphParser';
 import { appendEdge, applyTextEdits, createNodeSection, deleteRange, serializeEdge, updateCanvasMeta, updateNodeSection } from '../parser/MarkdownGraphSerializer';
 import { updateNodeDocument } from '../parser/NodeDocumentUpdater';
+import { applyMetaPatch, buildDuplicateNodeEdits } from '../parser/NodeDuplication';
 import { canvasHtml } from '../webview/canvasHtml';
 import { imageExtensions, isFiniteNumber, isPathWithinRoots, normalizePosixPath, resolveLinkTarget } from './ContentActionRules';
 import { isViewport, makeMeta, updateEdgeMeta, updateViewportMeta } from './documentEdits';
@@ -12,8 +15,10 @@ import { createNodeDocument } from './NodeCreation';
 import { handleAppendNodeContent, handleCreateRichNode, handleRequestPickImage, type HostEnv } from './RichContentHandlers';
 import { SidecarStorageManager } from '../storage/SidecarStorageManager';
 import { hydrateGraphWithStorageMode, type StorageMode } from '../storage/HydrationEngine';
-import { removeEdgeState, removeNodeState, renameNodeState } from '../state/CanvasStateReducer';
+import { removeEdgeState, removeNodeState, renameNodeState, setNodeCollapsedState } from '../state/CanvasStateReducer';
 import { updateNodeContentFromMessage } from './NodeContentMessages';
+import { collectGraphDiagnostics } from '../validation/GraphValidator';
+import { clearGraphDiagnostics, mapGraphDiagnostics, publishGraphDiagnostics, type DiagnosticCollectionLike, type MappedGraphDiagnostic } from './GraphDiagnosticsPublisher';
 
 type CanvasMessage = { type: string; editId?: string; [key: string]: unknown };
 
@@ -22,6 +27,14 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   private sidecarManager = new SidecarStorageManager();
   private documentMetaCache = new Map<string, CanvasMeta | null>();
   private documentViews = new Map<string, Set<() => void>>();
+  private graphDiagnosticCollection = vscode.languages.createDiagnosticCollection('Markdown Graph Studio');
+  private graphClipboard: GraphClipboard | null = null;
+  private clipboardPasteCount = 0;
+
+  // View cấu trúc tối thiểu của DiagnosticCollection cho publisher thuần (vscode nạp chồng set nên cần cast)
+  private get diagnosticCollectionView(): DiagnosticCollectionLike<vscode.Uri, vscode.Diagnostic> {
+    return this.graphDiagnosticCollection as unknown as DiagnosticCollectionLike<vscode.Uri, vscode.Diagnostic>;
+  }
 
   // Lấy cấu hình chế độ lưu trữ từ workspace
   private getStorageMode(): StorageMode {
@@ -80,13 +93,14 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       const mode = this.getStorageMode();
       const sidecarMeta = this.getCachedMeta(document.uri);
       const hydrated = hydrateGraphWithStorageMode(parsed, { mode, sidecarMeta });
-      return layoutGraphDocument(hydrated);
+      return this.withValidatorDiagnostics(layoutGraphDocument(hydrated), document.getText());
     };
     const sendGraph = () => {
       if (ready) {
         const g = currentGraph();
         g.resolvedImages = resolveImages(g);
         void panel.webview.postMessage({ type: 'graph', graph: g });
+        this.publishDocumentDiagnostics(document, g);
       }
     };
     const uriKey = document.uri.toString();
@@ -105,6 +119,16 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (message.type === 'ready') {
         ready = true;
         sendGraph();
+        return;
+      }
+      if (message.type === 'exportPng' && typeof message.dataUrl === 'string') {
+        await this.savePng(document, message.dataUrl);
+        return;
+      }
+      if (message.type === 'undo' || message.type === 'redo') {
+        this.editQueue = this.editQueue.then(async () => {
+          await vscode.commands.executeCommand(message.type);
+        });
         return;
       }
       const env = this.makeEnv(document, panel.webview, docDir, folder);
@@ -132,14 +156,66 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (!activeViews?.size) {
         this.documentViews.delete(uriKey);
         this.documentMetaCache.delete(uriKey);
+        clearGraphDiagnostics(this.diagnosticCollectionView, document.uri);
       }
     });
   }
 
   private editQueue: Promise<void> = Promise.resolve();
 
+  private async savePng(document: vscode.TextDocument, dataUrl: string): Promise<void> {
+    const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+    if (!match) {
+      void vscode.window.showErrorMessage('Could not export PNG: invalid image data.');
+      return;
+    }
+    const defaultName = document.uri.path.replace(/\.md$/i, '.png');
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: document.uri.with({ path: defaultName }),
+      filters: { 'PNG Image': ['png'] },
+      saveLabel: 'Export PNG',
+    });
+    if (!target) return;
+    await vscode.workspace.fs.writeFile(target, Buffer.from(match[1], 'base64'));
+    void vscode.window.showInformationMessage(`Exported ${target.path.split('/').pop() ?? 'graph.png'}.`);
+  }
+
+  private async removeNodesFromSidecar(uri: vscode.Uri, nextText: string, ids: ReadonlySet<string>): Promise<void> {
+    let meta = this.getCachedMeta(uri) ?? (await this.sidecarManager.readSidecar(uri)).meta;
+    if (!meta) return;
+    const remainingEdgeIds = new Set(parseMarkdownGraph(nextText).edges.map(edge => edge.id));
+    for (const id of ids) meta = removeNodeState(meta, id, remainingEdgeIds);
+    this.setCachedMeta(uri, meta);
+    await this.sidecarManager.writeSidecar(uri, meta);
+  }
+
   private broadcastGraph(uri: vscode.Uri): void {
     for (const send of this.documentViews.get(uri.toString()) ?? []) send();
+  }
+
+  // Gộp chẩn đoán từ validator (pure) vào graph, không bao giờ làm vỡ luồng render
+  private withValidatorDiagnostics(graph: GraphDocument, sourceText: string): GraphDocument {
+    try {
+      const extra = collectGraphDiagnostics(graph, sourceText);
+      if (extra.length === 0) return graph;
+      return { ...graph, diagnostics: [...(graph.diagnostics ?? []), ...extra] };
+    } catch (error) {
+      console.error('[MarkdownGraphEditorProvider] Graph validation failed:', error);
+      return graph;
+    }
+  }
+
+  // Đưa chẩn đoán của tài liệu lên bảng Problems qua DiagnosticCollection
+  private publishDocumentDiagnostics(document: vscode.TextDocument, graph: GraphDocument): void {
+    try {
+      const mapped = mapGraphDiagnostics(graph.diagnostics ?? [], (offset) => document.positionAt(offset));
+      const vscodeDiagnostics = mapped.map(toVscodeDiagnostic);
+      // DiagnosticCollection.set của vscode bị nạp chồng (biến thể "entries" đứng cuối),
+      // nên lấy view cấu trúc tối thiểu để dùng publisher không phụ thuộc vscode.
+      publishGraphDiagnostics(this.diagnosticCollectionView, document.uri, vscodeDiagnostics);
+    } catch (error) {
+      console.error('[MarkdownGraphEditorProvider] Diagnostics publish failed:', error);
+    }
   }
 
   // Tạo môi trường host cho các thao tác nội dung phong phú
@@ -199,12 +275,59 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       mode,
       sidecarMeta: this.getCachedMeta(document.uri),
     }));
+    const selectedIds = Array.isArray(value.ids)
+      ? new Set(value.ids.filter((id): id is string => typeof id === 'string'))
+      : new Set<string>();
+    if (value.type === 'copyNodes') {
+      const captured = captureGraphSelection(activeGraph, selectedIds);
+      if (captured) {
+        this.graphClipboard = captured;
+        this.clipboardPasteCount = 0;
+      }
+      return;
+    }
+    if (value.type === 'cutNodes') {
+      const captured = captureGraphSelection(activeGraph, selectedIds);
+      if (!captured) return;
+      this.graphClipboard = captured;
+      this.clipboardPasteCount = 0;
+      const nextText = deleteGraphSelection(text, selectedIds, mode === 'embedded');
+      if (mode === 'sidecar') await this.removeNodesFromSidecar(document.uri, nextText, selectedIds);
+      await this.apply(document, [{ start: 0, end: text.length, text: nextText }]);
+      if (mode === 'sidecar') this.broadcastGraph(document.uri);
+      return;
+    }
+    if (value.type === 'deleteNodes') {
+      if (selectedIds.size === 0) return;
+      const nextText = deleteGraphSelection(text, selectedIds, mode === 'embedded');
+      if (mode === 'sidecar') await this.removeNodesFromSidecar(document.uri, nextText, selectedIds);
+      await this.apply(document, [{ start: 0, end: text.length, text: nextText }]);
+      if (mode === 'sidecar') this.broadcastGraph(document.uri);
+      return;
+    }
+    if (value.type === 'pasteNodes' && this.graphClipboard) {
+      this.clipboardPasteCount += 1;
+      const pasted = pasteGraphSelection(text, activeGraph, this.graphClipboard, this.clipboardPasteCount);
+      if (!pasted) return;
+      let nextText = pasted.text;
+      const currentMeta = this.getCachedMeta(document.uri) ?? graph.meta;
+      if (mode !== 'stateless' && currentMeta) {
+        const nextMeta = applyMetaPatch(currentMeta, pasted.metaPatch);
+        this.setCachedMeta(document.uri, nextMeta);
+        if (mode === 'sidecar') await this.sidecarManager.writeSidecar(document.uri, nextMeta);
+        if (mode === 'embedded') nextText = applyTextEdits(nextText, [updateCanvasMeta(nextText, nextMeta)]);
+      }
+      await this.apply(document, [{ start: 0, end: text.length, text: nextText }]);
+      if (mode === 'sidecar') this.broadcastGraph(document.uri);
+      return;
+    }
     if (value.type === 'addNode') {
       const shape = typeof value.shape === 'string' && nodeShapes.includes(value.shape as GraphNode['shape']) ? value.shape as GraphNode['shape'] : 'rounded-rectangle';
       const color = typeof value.color === 'string' && nodeColors.includes(value.color as (typeof nodeColors)[number]) ? value.color : 'blue';
+      const icon = typeof value.icon === 'string' && nodeIconIds.includes(value.icon) ? value.icon : undefined;
       const embedMeta = mode === 'embedded';
       const created = createNodeDocument(text, activeGraph, {
-        shape, color, content: 'Describe this node.',
+        shape, color, icon, content: 'Describe this node.',
         x: isFiniteNumber(value.x) ? value.x : undefined,
         y: isFiniteNumber(value.y) ? value.y : undefined,
         embedMeta,
@@ -224,6 +347,22 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       const existingMeta = this.getCachedMeta(document.uri) ?? graph.meta;
       const viewport = isViewport(value.viewport) ? value.viewport : existingMeta?.viewport;
       const meta = makeMeta(existingMeta, value.nodes, viewport);
+      this.setCachedMeta(document.uri, meta);
+      if (mode === 'sidecar') {
+        await this.sidecarManager.writeSidecar(document.uri, meta);
+        this.broadcastGraph(document.uri);
+        return;
+      }
+      if (mode === 'embedded') {
+        await this.apply(document, [updateCanvasMeta(text, meta)]);
+        return;
+      }
+      return;
+    }
+    if (value.type === 'toggleNodeCollapsed' && typeof value.id === 'string' && typeof value.collapsed === 'boolean') {
+      const existingMeta = this.getCachedMeta(document.uri) ?? graph.meta;
+      const fallbackNodes = existingMeta ? [] : layoutGraphDocument(graph).nodes;
+      const meta = setNodeCollapsedState(existingMeta ?? makeMeta(undefined, fallbackNodes), value.id, value.collapsed);
       this.setCachedMeta(document.uri, meta);
       if (mode === 'sidecar') {
         await this.sidecarManager.writeSidecar(document.uri, meta);
@@ -292,6 +431,43 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       const ids = new Set(value.ids.filter((id): id is string => typeof id === 'string'));
       const edits = graph.nodes.filter((node) => ids.has(node.id) && node.sourceRange).map((node) => updateNodeSection(text, node, { ...node, shape, color }));
       await this.apply(document, edits);
+      return;
+    }
+    if (value.type === 'setNodeIcon' && Array.isArray(value.ids) && (value.icon === null || typeof value.icon === 'string')) {
+      const raw = typeof value.icon === 'string' ? value.icon.trim() : '';
+      const icon = raw !== '' ? raw : undefined;
+      const ids = new Set(value.ids.filter((id): id is string => typeof id === 'string'));
+      const edits = graph.nodes.filter((node) => ids.has(node.id) && node.sourceRange).map((node) => updateNodeSection(text, node, { ...node, icon }));
+      await this.apply(document, edits);
+      return;
+    }
+    if (value.type === 'toggleNodeLocked' && typeof value.id === 'string' && typeof value.locked === 'boolean') {
+      const target = graph.nodes.find((node) => node.id === value.id);
+      if (!target?.sourceRange) return;
+      await this.apply(document, [updateNodeSection(text, target, { ...target, locked: value.locked })]);
+      return;
+    }
+    if (value.type === 'duplicateNode' && typeof value.id === 'string') {
+      const sourceMeta = mode === 'stateless' ? null : (this.getCachedMeta(document.uri) ?? graph.meta ?? null);
+      const result = buildDuplicateNodeEdits(text, graph, value.id, sourceMeta);
+      if (!result) return;
+      await this.apply(document, result.edits);
+      if (Object.keys(result.metaPatch).length === 0) return;
+      if (mode === 'sidecar') {
+        const currentMeta = this.getCachedMeta(document.uri);
+        if (!currentMeta) return;
+        const nextMeta = applyMetaPatch(currentMeta, result.metaPatch);
+        this.setCachedMeta(document.uri, nextMeta);
+        await this.sidecarManager.writeSidecar(document.uri, nextMeta);
+        this.broadcastGraph(document.uri);
+        return;
+      }
+      if (mode === 'embedded') {
+        const currentMeta = this.getCachedMeta(document.uri) ?? graph.meta;
+        if (!currentMeta) return;
+        const nextMeta = applyMetaPatch(currentMeta, result.metaPatch);
+        await this.apply(document, [updateCanvasMeta(document.getText(), nextMeta)]);
+      }
       return;
     }
     if (value.type === 'addEdge' && typeof value.source === 'string' && typeof value.target === 'string') {
@@ -439,6 +615,23 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     }
     return success;
   }
+}
+
+// Chuyển chẩn đoán dạng plain object sang vscode.Diagnostic ngay trước khi set
+function toVscodeDiagnostic(mapped: MappedGraphDiagnostic): vscode.Diagnostic {
+  const severity = mapped.severity === 'error'
+    ? vscode.DiagnosticSeverity.Error
+    : mapped.severity === 'info'
+      ? vscode.DiagnosticSeverity.Information
+      : vscode.DiagnosticSeverity.Warning;
+  const diagnostic = new vscode.Diagnostic(
+    new vscode.Range(mapped.rangeStart.line, mapped.rangeStart.character, mapped.rangeEnd.line, mapped.rangeEnd.character),
+    mapped.message,
+    severity
+  );
+  diagnostic.source = 'Markdown Graph Studio';
+  if (mapped.code !== undefined) diagnostic.code = mapped.code;
+  return diagnostic;
 }
 
 // Kiểm tra đối tượng có phải thông điệp từ webview hợp lệ

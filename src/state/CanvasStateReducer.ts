@@ -1,4 +1,4 @@
-import type { CanvasEdgeEndpoints, CanvasMeta, CanvasNodeMeta, GraphNode, Viewport } from '../model/graphTypes';
+import { defaultNodeHeight, defaultNodeWidth, type CanvasEdgeEndpoints, type CanvasMeta, type CanvasNodeMeta, type GraphNode, type Viewport } from '../model/graphTypes';
 
 export function createCanvasMeta(existing: CanvasMeta | undefined, rawNodes: unknown[], viewport?: Viewport): CanvasMeta {
   const nodes: CanvasMeta['nodes'] = { ...(existing?.nodes ?? {}) };
@@ -8,8 +8,8 @@ export function createCanvasMeta(existing: CanvasMeta | undefined, rawNodes: unk
       ...nodes[raw.id],
       x: raw.x,
       y: raw.y,
-      width: raw.width,
-      height: raw.height,
+      ...(typeof raw.width === 'number' ? { width: raw.width } : {}),
+      ...(typeof raw.height === 'number' ? { height: raw.height } : {}),
       ...(typeof raw.layer === 'number' ? { layer: raw.layer } : {}),
     };
   }
@@ -51,6 +51,15 @@ export function removeEdgeState(existing: CanvasMeta, edgeId: string): CanvasMet
   const edges = { ...existing.edges };
   delete edges[edgeId];
   return nextRevision({ ...existing, edges });
+}
+
+export function setNodeCollapsedState(meta: CanvasMeta, nodeId: string, collapsed: boolean): CanvasMeta {
+  const current = meta.nodes[nodeId];
+  const nextEntry: CanvasNodeMeta = current
+    ? { ...current, collapsed }
+    : { x: 0, y: 0, width: defaultNodeWidth, height: defaultNodeHeight, collapsed };
+  const nodes = { ...meta.nodes, [nodeId]: nextEntry };
+  return nextRevision({ ...meta, nodes });
 }
 
 export function renameNodeState(existing: CanvasMeta, currentId: string, nextId: string, edgeIds: ReadonlyMap<string, string>): CanvasMeta {
@@ -100,12 +109,13 @@ function renameEndpoint(endpoint: CanvasEdgeEndpoints['source'], currentId: stri
   return endpoint.kind === 'node' && endpoint.nodeId === currentId ? { ...endpoint, nodeId: nextId } : { ...endpoint };
 }
 
-type LayoutNode = Pick<GraphNode, 'id' | 'x' | 'y' | 'width' | 'height'> & Partial<Pick<CanvasNodeMeta, 'layer'>>;
+type LayoutNode = Pick<GraphNode, 'id' | 'x' | 'y'> & Partial<Pick<GraphNode, 'width' | 'height'>> & Partial<Pick<CanvasNodeMeta, 'layer'>>;
 
 function isLayoutNode(value: unknown): value is LayoutNode {
   if (typeof value !== 'object' || value === null) return false;
   const node = value as Record<string, unknown>;
   return typeof node.id === 'string'
-    && ['x', 'y', 'width', 'height'].every((key) => typeof node[key] === 'number' && Number.isFinite(node[key] as number))
+    && ['x', 'y'].every((key) => typeof node[key] === 'number' && Number.isFinite(node[key] as number))
+    && ['width', 'height'].every((key) => node[key] === undefined || (typeof node[key] === 'number' && Number.isFinite(node[key] as number)))
     && (node.layer === undefined || (typeof node.layer === 'number' && Number.isFinite(node.layer)));
 }

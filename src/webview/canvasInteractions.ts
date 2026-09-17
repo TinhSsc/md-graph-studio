@@ -61,38 +61,76 @@ export function getCanvasInteractionsScript(): string {
       if (save) scheduleSaveViewport();
     }
 
+    function contextMenuItemHtml(id, label, extraClass) {
+      return '<div class="menu-item' + (extraClass ? ' ' + extraClass : '') + '" id="' + id + '">' + label + '</div>';
+    }
+
+    function contextMenuFieldHtml(id, labelText, optionsHtml) {
+      return '<label class="menu-field"><span>' + labelText + '</span><select id="' + id + '">' + optionsHtml + '</select></label>';
+    }
+
+    function shapeOptionsHtml(selected) {
+      return ['rounded-rectangle', 'rectangle']
+        .map(value => '<option' + (value === selected ? ' selected' : '') + '>' + value + '</option>').join('');
+    }
+
+    function colorOptionsHtml(selected) {
+      return Object.keys(colors)
+        .map(value => '<option' + (value === selected ? ' selected' : '') + '>' + value + '</option>').join('');
+    }
+
+    function buildNodeContextMenuHtml(nodeId, node) {
+      const isMulti = selectedNodeIds.size > 1 && selectedNodeIds.has(nodeId);
+      if (node && node.ghost) {
+        return contextMenuItemHtml('ctx-create-node', 'Create node') +
+          contextMenuItemHtml('ctx-del-node', 'Delete', 'menu-item-danger');
+      }
+      let html = '';
+      if (isMulti) {
+        html = contextMenuFieldHtml('ctx-node-shape', 'Shape', shapeOptionsHtml(node?.shape)) +
+          contextMenuFieldHtml('ctx-node-color', 'Color', colorOptionsHtml(node?.color)) +
+          contextMenuItemHtml('ctx-change-icon', 'Change Icon...');
+        const styleIds = Array.from(selectedNodeIds);
+        const anyUnlocked = styleIds.some(id => { const item = findNode(id); return item && !item.locked; });
+        html += contextMenuItemHtml('ctx-toggle-lock', anyUnlocked ? 'Lock all' : 'Unlock all');
+        const anyExpanded = styleIds.some(id => { const item = findNode(id); return item && !item.collapsed; });
+        html += contextMenuItemHtml('ctx-toggle-collapse', anyExpanded ? 'Collapse all' : 'Expand all');
+        html += contextMenuItemHtml('ctx-copy-nodes', 'Copy ' + styleIds.length + ' nodes    Ctrl+C');
+        html += contextMenuItemHtml('ctx-cut-nodes', 'Cut ' + styleIds.length + ' nodes    Ctrl+X');
+        html += contextMenuItemHtml('ctx-del-node', 'Delete ' + styleIds.length + ' nodes', 'menu-item-danger');
+      } else {
+        html = contextMenuItemHtml('ctx-edit-node', 'Edit Node') +
+          contextMenuFieldHtml('ctx-node-shape', 'Shape', shapeOptionsHtml(node?.shape)) +
+          contextMenuFieldHtml('ctx-node-color', 'Color', colorOptionsHtml(node?.color)) +
+          contextMenuItemHtml('ctx-change-icon', 'Change Icon...') +
+          contextMenuItemHtml('ctx-toggle-lock', node && node.locked ? 'Unlock node' : 'Lock node') +
+          contextMenuItemHtml('ctx-toggle-collapse', node && node.collapsed ? 'Expand' : 'Collapse') +
+          contextMenuItemHtml('ctx-duplicate-node', 'Duplicate node') +
+          contextMenuItemHtml('ctx-copy-nodes', 'Copy    Ctrl+C') +
+          contextMenuItemHtml('ctx-cut-nodes', 'Cut    Ctrl+X') +
+          '<div class="menu-divider"></div>' +
+          contextMenuItemHtml('ctx-del-node', 'Delete node', 'menu-item-danger');
+      }
+      html += '<div class="menu-divider"></div>';
+      return html;
+    }
+
     function showContextMenu(clientX, clientY) {
       const clickedEl = document.elementFromPoint(clientX, clientY);
       const clickedNode = clickedEl?.closest('.node');
-      const clickedEdge = clickedEl?.closest('.edge');
+      const clickedEdge = clickedEl?.closest('.edge, .edge-hit, .edge-label-group');
+      const clickedEdgeId = clickedEdge
+        ? clickedEdge.id.replace(/^edge-hit-/, '').replace(/^edge-/, '').replace(/^label-group-/, '')
+        : '';
       const wp = screenToWorld(clientX, clientY);
 
       let html = '';
       if (clickedNode) {
         const nodeId = clickedNode.id.replace('node-', '');
-        const node = findNode(nodeId);
-        html = '<div class="menu-item" id="ctx-img-workspace">Insert Image from Workspace</div>' +
-          '<div class="menu-item" id="ctx-img-url">Insert Image from URL</div>' +
-          '<div class="menu-item" id="ctx-add-link">Insert Link</div>' +
-          '<div class="menu-item" id="ctx-add-task">Add Checklist Item</div>' +
-          '<div class="menu-item" id="ctx-add-code">Insert Code Block</div>' +
-          '<div class="menu-item" id="ctx-add-tag">Add Tag</div>' +
-          '<div class="menu-item" id="ctx-add-quote">Insert Blockquote</div>' +
-          '<div class="menu-divider"></div>' +
-          '<div class="menu-item" id="ctx-edit-node">Edit Node</div>' +
-          '<label class="menu-field"><span>Shape</span><select id="ctx-node-shape">' +
-          ['rounded-rectangle', 'rectangle', 'circle', 'ellipse', 'diamond', 'triangle'].map(value => '<option' + (value === node?.shape ? ' selected' : '') + '>' + value + '</option>').join('') +
-          '</select></label>' +
-          '<label class="menu-field"><span>Color</span><select id="ctx-node-color">' +
-          Object.keys(colors).map(value => '<option' + (value === node?.color ? ' selected' : '') + '>' + value + '</option>').join('') +
-          '</select></label>' +
-          '<div class="menu-divider"></div>' +
-          '<div class="menu-item menu-item-danger" id="ctx-del-node">Delete Node</div>' +
-          '<div class="menu-divider"></div>';
-      } else if (clickedEdge && clickedEdge.id.startsWith('edge-')) {
-        const edgeId = clickedEdge.id.replace('edge-', '');
-        const edge = findEdge(edgeId);
-        html = '<label class="menu-field menu-field-column"><span>Label</span><input id="ctx-edge-label" value="' + esc(edge?.label || '') + '"></label>' +
+        html = buildNodeContextMenuHtml(nodeId, findNode(nodeId));
+      } else if (clickedEdgeId) {
+        const edge = findEdge(clickedEdgeId);
+        html = contextMenuItemHtml('ctx-edit-edge-label', edge?.label ? 'Edit label...' : 'Add label...') +
           '<label class="menu-field"><span>Arrow</span><select id="ctx-edge-arrow">' +
           ['forward', 'backward', 'both', 'none'].map(value => '<option' + (value === edge?.arrow ? ' selected' : '') + '>' + value + '</option>').join('') + '</select></label>' +
           '<label class="menu-field"><span>Line</span><select id="ctx-edge-line">' +
@@ -109,7 +147,11 @@ export function getCanvasInteractionsScript(): string {
           '<div class="menu-divider"></div>';
       }
 
-      html += '<div class="menu-item" id="ctx-fit">Fit to Screen (F)</div>' +
+      html += '<div class="menu-item" id="ctx-paste-nodes">Paste    Ctrl+V</div>' +
+        '<div class="menu-item" id="ctx-undo">Undo    Ctrl+Z</div>' +
+        '<div class="menu-item" id="ctx-redo">Redo    Ctrl+Y</div>' +
+        '<div class="menu-divider"></div>' +
+        '<div class="menu-item" id="ctx-fit">Fit to Screen (F)</div>' +
         '<div class="menu-item" id="ctx-reset-zoom">Reset Zoom 100%</div>';
 
       contextMenu.innerHTML = html;
@@ -119,7 +161,7 @@ export function getCanvasInteractionsScript(): string {
       contextMenu.style.top = Math.max(6, Math.min(window.innerHeight - menuRect.height - 6, clientY)) + 'px';
 
       const addBtn = document.querySelector('#ctx-add-node');
-      if (addBtn) addBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'addNode', x: wp.x, y: wp.y, shape: nodeShapeSelect.value, color: nodeColorSelect.value }); };
+      if (addBtn) addBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'addNode', x: wp.x, y: wp.y, shape: nodeShapeSelect.value, color: nodeColorSelect.value, icon: nodeIconSelect.value }); };
       const addChecklistBtn = document.querySelector('#ctx-add-checklist-node');
       if (addChecklistBtn) addChecklistBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'checklist', x: wp.x, y: wp.y }); };
       const addCodeBtn = document.querySelector('#ctx-add-code-node');
@@ -131,68 +173,131 @@ export function getCanvasInteractionsScript(): string {
       if (fitBtn) fitBtn.onclick = () => { closeContextMenu(); fitToView(); };
       const rstBtn = document.querySelector('#ctx-reset-zoom');
       if (rstBtn) rstBtn.onclick = () => { closeContextMenu(); pan.zoom = 1; view(); scheduleSaveViewport(); };
+      const pasteBtn = document.querySelector('#ctx-paste-nodes');
+      if (pasteBtn) pasteBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'pasteNodes' }); };
+      const undoBtn = document.querySelector('#ctx-undo');
+      if (undoBtn) undoBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'undo' }); };
+      const redoBtn = document.querySelector('#ctx-redo');
+      if (redoBtn) redoBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'redo' }); };
 
       if (clickedNode) {
-        const nodeId = clickedNode.id.replace('node-', '');
-        const node = findNode(nodeId);
-        const styleIds = [nodeId];
-        const applyContextStyle = () => {
-          const shape = document.querySelector('#ctx-node-shape').value;
-          const color = document.querySelector('#ctx-node-color').value;
-          graph.nodes.filter(item => styleIds.includes(item.id)).forEach(item => { item.shape = shape; item.color = color; });
-          vscode.postMessage({ type: 'applyNodeStyle', ids: styleIds, shape, color });
-          closeContextMenu();
-          render();
-        };
-
-        const imgWs = document.querySelector('#ctx-img-workspace');
-        if (imgWs) imgWs.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'requestPickImage', id: nodeId }); };
-        const imgUrl = document.querySelector('#ctx-img-url');
-        if (imgUrl) imgUrl.onclick = () => { closeContextMenu(); openPopover('imageUrl', nodeId); };
-        const linkBtn = document.querySelector('#ctx-add-link');
-        if (linkBtn) linkBtn.onclick = () => { closeContextMenu(); openPopover('link', nodeId); };
-        const taskBtn = document.querySelector('#ctx-add-task');
-        if (taskBtn) taskBtn.onclick = () => { closeContextMenu(); dispatchContentAction('task', { kind: 'task', text: 'New task' }, nodeId); };
-        const codeBtn = document.querySelector('#ctx-add-code');
-        if (codeBtn) codeBtn.onclick = () => { closeContextMenu(); openPopover('code', nodeId); };
-        const tagBtn = document.querySelector('#ctx-add-tag');
-        if (tagBtn) tagBtn.onclick = () => { closeContextMenu(); openPopover('tag', nodeId); };
-        const quoteBtn = document.querySelector('#ctx-add-quote');
-        if (quoteBtn) quoteBtn.onclick = () => { closeContextMenu(); dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId); };
-
-        document.querySelector('#ctx-edit-node').onclick = () => {
-          closeContextMenu();
-          selectedNodeIds.clear();
-          selectedNodeIds.add(nodeId);
-          highlightSelection();
-          if (node) startInlineNodeEdit(node, clickedNode);
-        };
-        document.querySelector('#ctx-node-shape').onchange = applyContextStyle;
-        document.querySelector('#ctx-node-color').onchange = applyContextStyle;
-        document.querySelector('#ctx-del-node').onclick = () => { closeContextMenu(); openPopover('delete', nodeId); };
+        wireNodeContextMenu(clickedNode);
       }
-      if (clickedEdge && clickedEdge.id.startsWith('edge-')) {
-        const edgeId = clickedEdge.id.replace('edge-', '');
-        const edge = findEdge(edgeId);
+      if (clickedEdgeId) {
+        const edge = findEdge(clickedEdgeId);
         const updateEdgeFromContext = () => {
           if (!edge) return;
-          edge.label = document.querySelector('#ctx-edge-label').value.trim();
           edge.arrow = document.querySelector('#ctx-edge-arrow').value;
           edge.line = document.querySelector('#ctx-edge-line').value;
           vscode.postMessage({ type: 'updateEdge', id: edge.id, label: edge.label, arrow: edge.arrow, line: edge.line });
           render();
         };
-        document.querySelector('#ctx-edge-label').onchange = updateEdgeFromContext;
-        document.querySelector('#ctx-edge-label').onkeydown = event => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          updateEdgeFromContext();
+        const editLabelBtn = document.querySelector('#ctx-edit-edge-label');
+        if (editLabelBtn) editLabelBtn.onclick = () => {
           closeContextMenu();
+          if (!edge) return;
+          selectEdgeLocally(edge);
+          startInlineEdgeLabelEdit(edge, calculateEdgeGeometry(edge));
         };
         document.querySelector('#ctx-edge-arrow').onchange = updateEdgeFromContext;
         document.querySelector('#ctx-edge-line').onchange = updateEdgeFromContext;
-        document.querySelector('#ctx-del-edge').onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'deleteEdge', id: edgeId }); };
+        document.querySelector('#ctx-del-edge').onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'deleteEdge', id: clickedEdgeId }); };
       }
+    }
+
+    function wireNodeContextMenu(clickedNode) {
+      const nodeId = clickedNode.id.replace('node-', '');
+      const node = findNode(nodeId);
+      const isMulti = selectedNodeIds.size > 1 && selectedNodeIds.has(nodeId);
+      const styleIds = isMulti ? Array.from(selectedNodeIds) : [nodeId];
+
+      const applyContextStyle = () => {
+        const shapeEl = document.querySelector('#ctx-node-shape');
+        const colorEl = document.querySelector('#ctx-node-color');
+        if (!shapeEl || !colorEl) return;
+        const shape = shapeEl.value;
+        const color = colorEl.value;
+        graph.nodes.filter(item => styleIds.includes(item.id)).forEach(item => { item.shape = shape; item.color = color; });
+        vscode.postMessage({ type: 'applyNodeStyle', ids: styleIds, shape, color });
+        closeContextMenu();
+        render();
+      };
+      const shapeSelect = document.querySelector('#ctx-node-shape');
+      const colorSelect = document.querySelector('#ctx-node-color');
+      if (shapeSelect) shapeSelect.onchange = applyContextStyle;
+      if (colorSelect) colorSelect.onchange = applyContextStyle;
+
+      const iconBtn = document.querySelector('#ctx-change-icon');
+      if (iconBtn) iconBtn.onclick = () => { closeContextMenu(); openIconPicker(styleIds, clickedNode); };
+
+      const copyBtn = document.querySelector('#ctx-copy-nodes');
+      if (copyBtn) copyBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'copyNodes', ids: styleIds }); };
+      const cutBtn = document.querySelector('#ctx-cut-nodes');
+      if (cutBtn) cutBtn.onclick = () => {
+        closeContextMenu();
+        vscode.postMessage({ type: 'cutNodes', ids: styleIds });
+        selectedNodeIds.clear();
+        inspectEmpty();
+      };
+
+      const delBtn = document.querySelector('#ctx-del-node');
+      if (delBtn) delBtn.onclick = () => {
+        closeContextMenu();
+        if (isMulti) vscode.postMessage({ type: 'deleteNodes', ids: styleIds });
+        else openPopover('delete', nodeId);
+      };
+
+      if (node && node.ghost) {
+        const createBtn = document.querySelector('#ctx-create-node');
+        if (createBtn) createBtn.onclick = () => {
+          closeContextMenu();
+          selectedNodeIds.clear();
+          selectedNodeIds.add(nodeId);
+          highlightSelection();
+          vscode.postMessage({ type: 'updateNode', id: nodeId, title: node.title, shape: node.shape, color: node.color, content: '' });
+        };
+        return;
+      }
+
+      const toggleLockBtn = document.querySelector('#ctx-toggle-lock');
+      if (toggleLockBtn) toggleLockBtn.onclick = () => {
+        closeContextMenu();
+        const anyUnlocked = styleIds.some(id => { const item = findNode(id); return item && !item.locked; });
+        const locked = anyUnlocked;
+        styleIds.forEach(id => {
+          const item = findNode(id);
+          if (!item) return;
+          item.locked = locked;
+          vscode.postMessage({ type: 'toggleNodeLocked', id, locked });
+        });
+        render();
+      };
+
+      const toggleCollapseBtn = document.querySelector('#ctx-toggle-collapse');
+      if (toggleCollapseBtn) toggleCollapseBtn.onclick = () => {
+        closeContextMenu();
+        const anyExpanded = styleIds.some(id => { const item = findNode(id); return item && !item.collapsed; });
+        const collapsed = anyExpanded;
+        styleIds.forEach(id => {
+          const item = findNode(id);
+          if (!item) return;
+          item.collapsed = collapsed;
+          vscode.postMessage({ type: 'toggleNodeCollapsed', id, collapsed });
+        });
+        render();
+      };
+
+      const duplicateBtn = document.querySelector('#ctx-duplicate-node');
+      if (duplicateBtn) duplicateBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'duplicateNode', id: nodeId }); };
+
+      const editBtn = document.querySelector('#ctx-edit-node');
+      if (editBtn) editBtn.onclick = () => {
+        closeContextMenu();
+        selectedNodeIds.clear();
+        selectedNodeIds.add(nodeId);
+        highlightSelection();
+        if (node) startInlineNodeEdit(node, clickedNode);
+      };
     }
 
     function closeContextMenu() {
@@ -210,10 +315,50 @@ export function getCanvasInteractionsScript(): string {
         if (e.code === 'Space' && !isInput) spaceDown = true;
         if (isInput) return;
 
+        const commandKey = e.ctrlKey || e.metaKey;
+        const key = e.key.toLowerCase();
+        if (commandKey && key === 'c' && selectedNodeIds.size > 0) {
+          e.preventDefault();
+          vscode.postMessage({ type: 'copyNodes', ids: Array.from(selectedNodeIds) });
+          return;
+        }
+        if (commandKey && key === 'x' && selectedNodeIds.size > 0) {
+          e.preventDefault();
+          vscode.postMessage({ type: 'cutNodes', ids: Array.from(selectedNodeIds) });
+          selectedNodeIds.clear();
+          inspectEmpty();
+          return;
+        }
+        if (commandKey && key === 'v') {
+          e.preventDefault();
+          vscode.postMessage({ type: 'pasteNodes' });
+          return;
+        }
+        if (commandKey && key === 'z') {
+          e.preventDefault();
+          vscode.postMessage({ type: e.shiftKey ? 'redo' : 'undo' });
+          return;
+        }
+        if (commandKey && key === 'y') {
+          e.preventDefault();
+          vscode.postMessage({ type: 'redo' });
+          return;
+        }
+        if (commandKey && key === 'f') {
+          e.preventDefault();
+          searchBox.focus();
+          searchBox.select();
+          return;
+        }
+
         if (e.key === 'Delete' || e.key === 'Backspace') {
           if (selectedNodeIds.size === 1) {
             const singleId = Array.from(selectedNodeIds)[0];
             openPopover('delete', singleId);
+          } else if (selectedNodeIds.size > 1) {
+            vscode.postMessage({ type: 'deleteNodes', ids: Array.from(selectedNodeIds) });
+            selectedNodeIds.clear();
+            inspectEmpty();
           } else if (selectedEdgeId) {
             vscode.postMessage({ type: 'deleteEdge', id: selectedEdgeId });
             selectedEdgeId = null;
@@ -237,13 +382,9 @@ export function getCanvasInteractionsScript(): string {
         } else if (e.key === 'n' || e.key === 'N' || e.key === 'Insert') {
           const r = canvas.getBoundingClientRect();
           const center = screenToWorld(r.left + r.width / 2, r.top + r.height / 2);
-          vscode.postMessage({ type: 'addNode', x: center.x - 70, y: center.y - 30, shape: nodeShapeSelect.value, color: nodeColorSelect.value });
+          vscode.postMessage({ type: 'addNode', x: center.x - 70, y: center.y - 30, shape: nodeShapeSelect.value, color: nodeColorSelect.value, icon: nodeIconSelect.value });
         } else if (e.key === '?' || e.key === 'F1') {
           shortcutsModal.classList.toggle('visible');
-        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
-          e.preventDefault();
-          searchBox.focus();
-          searchBox.select();
         }
       };
 

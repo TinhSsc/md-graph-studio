@@ -27,10 +27,6 @@ Detailed content of the node goes here...
 2. **Node Shape (`shape` attribute)**:
    - `rounded-rectangle`: Soft rounded rectangle (default; best for services, generic components, application modules).
    - `rectangle`: Sharp rectangle (suitable for Gateways, Controllers, System Boundaries).
-   - `diamond`: Decision diamond (ideal for conditional branching, logic checks, authorization gates).
-   - `circle`: Circular node (ideal for Databases, Storage, In-memory caches, Start/End states).
-   - `ellipse`: Oval / Ellipse (ideal for External services, Third-party APIs, Notification providers).
-   - `triangle`: Triangle (ideal for Warning indicators, Risk checkpoints, Message queues, Dead-letter queues).
 3. **Node Color Palette (`color` attribute)**:
    - `blue`: Primary client-facing apps, Web UI, Mobile clients, Frontend layer.
    - `purple`: Routers, Reverse proxies, API Gateways, Middleware orchestrators.
@@ -120,7 +116,7 @@ Reverse proxy, rate limiting, and SSL termination.
 - [[node-service|Forward Request]] <!-- graph-edge: arrow=forward; line=solid; from=right; to=left -->
 
 ## Auth Service {#node-auth}
-<!-- graph-node: shape=diamond; color=yellow; collapsed=false; locked=false -->
+<!-- graph-node: shape=rectangle; color=yellow; collapsed=false; locked=false -->
 User identity provider and permission evaluator.
 
 > Zero-trust architecture: Enforces mTLS across all private network routes.
@@ -134,7 +130,7 @@ Primary business workflow orchestration microservice.
 - [[node-db|Read / Write State]] <!-- graph-edge: arrow=forward; line=solid; from=bottom; to=top -->
 
 ## Database Cluster {#node-db}
-<!-- graph-node: shape=circle; color=blue; collapsed=false; locked=true -->
+<!-- graph-node: shape=rounded-rectangle; color=blue; collapsed=false; locked=true -->
 Multi-AZ PostgreSQL cluster with Redis cache.
 
 Tags: #database #postgres #redis #persistence

@@ -32,6 +32,52 @@ export function getCanvasActionBarStyles(): string {
     #node-action-bar button.danger { color: #e57373; }
     .action-bar-divider { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 
+    /* Lock button: glyph mirrors node.locked, aria-pressed reflects state */
+    #node-action-bar button[data-action="lock"] .lock-glyph-locked { display: none; }
+    #node-action-bar button[data-action="lock"][aria-pressed="true"] { color: #d2a32a; }
+    #node-action-bar button[data-action="lock"][aria-pressed="true"] .lock-glyph-locked { display: inline-flex; }
+    #node-action-bar button[data-action="lock"][aria-pressed="true"] .lock-glyph-unlocked { display: none; }
+
+    /* Icon picker popover */
+    #icon-picker {
+      position: fixed; z-index: 95; display: none; flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+      color: var(--fg);
+      padding: 8px;
+      min-width: 200px;
+      max-width: 236px;
+    }
+    @supports ((backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px))) {
+      #icon-picker {
+        background: rgba(30, 34, 40, 0.82);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+      }
+    }
+    .icon-picker-header { font-size: 11px; font-weight: 600; color: var(--muted); padding: 0 2px 6px; }
+    .icon-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 28px);
+      gap: 3px;
+      justify-content: center;
+    }
+    .icon-picker-item {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; padding: 0;
+      background: transparent; border: 1px solid transparent; border-radius: 6px;
+      color: var(--fg); cursor: pointer;
+    }
+    .icon-picker-item:hover { background: var(--hover); border-color: var(--border); }
+    .icon-picker-item svg { width: 14px; height: 14px; }
+    .icon-picker-none {
+      width: 100%; min-width: 0; height: 24px; margin-top: 6px;
+      font-size: 11px; border: 1px solid var(--border); border-radius: 6px;
+      justify-content: center;
+    }
+
     #action-image-menu { flex-direction: column; padding: 4px; min-width: 168px; }
     #action-image-menu.open { display: flex; }
     #action-image-menu button {

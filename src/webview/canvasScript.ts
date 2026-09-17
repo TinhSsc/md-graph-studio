@@ -3,11 +3,15 @@ import { getCanvasGeometryScript } from './canvasGeometry';
 import { getCanvasEdgeEndpointsScript } from './canvasEdgeEndpoints';
 import { getCanvasEdgeRouterScript } from './canvasEdgeRouter';
 import { getCanvasEdgeSegmentsScript } from './canvasEdgeSegments';
+import { getCanvasExportScript } from './canvasExport';
 import { getCanvasInspectorScript } from './canvasInspector';
 import { getCanvasNodeEditingScript } from './canvasNodeEditing';
 import { getCanvasInteractionsScript } from './canvasInteractions';
 import { getCanvasMarkdownRendererScript } from './canvasMarkdownRenderer';
 import { getCanvasRenderingScript } from './canvasRendering';
+import { getCanvasFormatPanelScript } from './canvasFormatPanel';
+import { getCanvasDiagnosticsScript } from './canvasDiagnosticsScript';
+import { getCanvasSidebarSearchScript } from './canvasSidebarSearch';
 import { getCanvasUiControlsScript } from './canvasUiControls';
 import { getCanvasActionBarScript } from './canvasActionBar';
 import { getCanvasPopoversScript } from './canvasPopovers';
@@ -125,6 +129,9 @@ export function getCanvasScript(data: string): string {
     ${getCanvasInteractionsScript()}
     ${getCanvasMarkdownRendererScript()}
     ${getCanvasRenderingScript()}
+    ${getCanvasFormatPanelScript()}
+    ${getCanvasDiagnosticsScript()}
+    ${getCanvasExportScript()}
 
     function applyNodeDragPosition(point) {
       if (!dragGroup || !point) return;
@@ -274,6 +281,7 @@ export function getCanvasScript(data: string): string {
       }
 
       if (nodeDragCandidate && !isNodeDragging) {
+        if (nodeDragCandidate.node && nodeDragCandidate.node.locked) return;
         const dist = Math.hypot(e.clientX - nodeDragCandidate.startX, e.clientY - nodeDragCandidate.startY);
         if (dist >= INTERACTION_CONFIG.thresholds.dragDistance) {
           isNodeDragging = true;
@@ -363,9 +371,16 @@ export function getCanvasScript(data: string): string {
       }
 
       if (resizing) {
+        const resizedNodeId = resizing.id;
         vscode.postMessage({
           type: 'saveLayout',
-          nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height, layer: n.layer })),
+          nodes: graph.nodes.map(n => ({
+            id: n.id,
+            x: n.x,
+            y: n.y,
+            layer: n.layer,
+            ...(n.id === resizedNodeId ? { width: n.width, height: n.height } : {})
+          })),
           viewport: pan
         });
         resizing = null;
@@ -412,7 +427,7 @@ export function getCanvasScript(data: string): string {
           }
           vscode.postMessage({
             type: 'saveLayout',
-            nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, width: n.width, height: n.height, layer: n.layer })),
+            nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, layer: n.layer })),
             viewport: pan
           });
         }
@@ -450,6 +465,7 @@ export function getCanvasScript(data: string): string {
     };
 
     ${getCanvasUiControlsScript()}
+    ${getCanvasSidebarSearchScript()}
     ${getCanvasPopoversScript()}
     ${getCanvasActionBarScript()}
 
@@ -495,6 +511,7 @@ export function getCanvasScript(data: string): string {
         hideNodeActionBar();
       }
       render();
+      refreshDiagnosticsUI(graph);
     }
 
     window.addEventListener('beforeunload', () => {
@@ -506,6 +523,7 @@ export function getCanvasScript(data: string): string {
     });
 
     render();
+    refreshDiagnosticsUI(graph);
 
     const hasPersistedState = Boolean(savedState && savedState.pan && typeof savedState.pan.x === 'number');
     if (hasPersistedState) {

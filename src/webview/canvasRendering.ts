@@ -1,5 +1,16 @@
+import { getNodeIconsScript, icons } from './canvasIcons';
+
 export function getCanvasRenderingScript(): string {
   return `
+    ${getNodeIconsScript()}
+    var mgsChevronDown = '${icons.chevronDown}';
+    var mgsChevronRight = '${icons.chevronRight}';
+
+    function countHiddenContentLines(content) {
+      if (!content || typeof content !== 'string') return 0;
+      return content.split(String.fromCharCode(10)).filter(line => line.trim().length > 0).length;
+    }
+
     function updateEdgesForNodes(nodeIdSet) {
       for (const e of graph.edges) {
         if (!nodeIdSet.has(e.source) && !nodeIdSet.has(e.target)) continue;
@@ -7,6 +18,8 @@ export function getCanvasRenderingScript(): string {
         if (!geom) continue;
         const pathEl = document.querySelector('#edge-' + CSS.escape(e.id));
         if (pathEl) pathEl.setAttribute('d', geom.d);
+        const hitEl = document.querySelector('#edge-hit-' + CSS.escape(e.id));
+        if (hitEl) hitEl.setAttribute('d', geom.d);
         const labelGroup = document.querySelector('#label-group-' + CSS.escape(e.id));
         if (labelGroup) {
           labelGroup.setAttribute('transform', 'translate(' + geom.mx + ',' + geom.my + ')');
@@ -21,29 +34,50 @@ export function getCanvasRenderingScript(): string {
       if (selectedEdge && selectedGeometry) refreshEdgeHandles(selectedEdge, selectedGeometry);
     }
 
+    function selectEdgeLocally(edge) {
+      selectedNodeIds.clear();
+      selectedEdgeId = edge.id;
+      highlightSelection();
+      document.querySelectorAll('.edge-label-group.selected').forEach(el => el.classList.remove('selected'));
+      const labelGroup = document.querySelector('#label-group-' + CSS.escape(edge.id));
+      if (labelGroup) labelGroup.classList.add('selected');
+      const geometry = calculateEdgeGeometry(edge);
+      if (geometry) refreshEdgeHandles(edge, geometry);
+      inspectEdge(edge.id);
+      editorRight.classList.remove('collapsed');
+    }
+
+    // Single click selects the edge without re-rendering the canvas so the
+    // follow-up dblclick still reaches the same DOM element.
+    function wireEdgeEvents(target, edge, geom) {
+      target.onclick = x => {
+        x.stopPropagation();
+        selectEdgeLocally(edge);
+      };
+      target.ondblclick = x => {
+        x.stopPropagation();
+        selectEdgeLocally(edge);
+        startInlineEdgeLabelEdit(edge, calculateEdgeGeometry(edge) || geom);
+      };
+    }
+
     function renderEdge(e) {
       const geom = calculateEdgeGeometry(e);
       if (!geom) return;
+      const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      hitPath.id = 'edge-hit-' + e.id;
+      hitPath.setAttribute('d', geom.d);
+      hitPath.setAttribute('class', 'edge-hit');
+      wireEdgeEvents(hitPath, e, geom);
+      edgesGroup.append(hitPath);
+
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       p.id = 'edge-' + e.id;
       p.setAttribute('d', geom.d);
       p.setAttribute('class', 'edge ' + (e.line || 'solid') + (selectedEdgeId === e.id ? ' selected' : ''));
       if (e.arrow === 'forward' || e.arrow === 'both') p.setAttribute('marker-end', 'url(#arrow)');
       if (e.arrow === 'backward' || e.arrow === 'both') p.setAttribute('marker-start', 'url(#arrow-start)');
-      p.onclick = x => {
-        x.stopPropagation();
-        selectedNodeIds.clear();
-        selectedEdgeId = e.id;
-        render();
-        editorRight.classList.remove('collapsed');
-      };
-      p.ondblclick = x => {
-        x.stopPropagation();
-        selectedNodeIds.clear();
-        selectedEdgeId = e.id;
-        render();
-        startInlineEdgeLabelEdit(e, geom);
-      };
+      wireEdgeEvents(p, e, geom);
       edgesGroup.append(p);
 
       if (e.label) {
@@ -77,10 +111,7 @@ export function getCanvasRenderingScript(): string {
 
         g.onclick = x => {
           x.stopPropagation();
-          selectedNodeIds.clear();
-          selectedEdgeId = e.id;
-          render();
-          editorRight.classList.remove('collapsed');
+          selectEdgeLocally(e);
         };
         g.ondblclick = x => {
           x.stopPropagation();
@@ -96,8 +127,10 @@ export function getCanvasRenderingScript(): string {
     function getNodeMinimumHeight(element) {
       const header = element.querySelector('.node-header');
       const content = element.querySelector('.node-content');
+      const hint = element.querySelector('.node-collapsed-hint');
       const headerHeight = header ? header.offsetHeight : 36;
-      if (!content) return Math.max(38, Math.ceil(headerHeight + 2));
+      const hintHeight = hint ? hint.offsetHeight : 0;
+      if (!content) return Math.max(38, Math.ceil(headerHeight + hintHeight + 2));
       const previous = {
         flex: content.style.flex,
         height: content.style.height,
@@ -121,14 +154,18 @@ export function getCanvasRenderingScript(): string {
       const manuallySized = Boolean(n.resized || savedNodeMeta?.width !== undefined || savedNodeMeta?.height !== undefined);
       const el = document.createElement('article');
       el.id = 'node-' + n.id;
-      el.className = 'node ' + (n.shape || 'rounded-rectangle') + (n.ghost ? ' ghost' : '') + (selectedNodeIds.has(n.id) ? ' selected' : '') + (manuallySized ? ' user-sized' : '');
+      el.className = 'node ' + (n.shape || 'rounded-rectangle') + (n.ghost ? ' ghost' : '') + (n.locked ? ' locked' : '') + (n.collapsed ? ' collapsed' : '') + (selectedNodeIds.has(n.id) ? ' selected' : '') + (manuallySized ? ' user-sized' : '');
       el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
       if (typeof n.layer === 'number') el.style.zIndex = String(n.layer);
       if (n.resized || (n.width && n.width !== 240)) el.style.width = n.width + 'px';
       if (n.resized || (n.height && n.height !== 160)) el.style.height = n.height + 'px';
       el.style.setProperty('--node-color', colors[n.color] || n.color || '#7d8790');
-      const renderedContent = renderMarkdownToHtml(n.content || '', n.id);
-      el.innerHTML = '<div class="node-header"><div class="node-color-dot"></div><div class="node-title">' + esc(n.title) + '</div></div>' + (renderedContent ? '<div class="node-content">' + renderedContent + '</div>' : '') + ['top', 'right', 'bottom', 'left'].map(p => '<div class="port ' + p + '" data-port="' + p + '" title="Drag to connect"></div>').join('') + '<div class="resizer" title="Drag to resize"></div>';
+      const renderedContent = n.collapsed ? '' : renderMarkdownToHtml(n.content || '', n.id);
+      const iconName = n.icon && mgsNodeIcons[n.icon] ? n.icon : 'file-text';
+      const nodeIconHtml = '<span class="node-icon" title="Icon: ' + esc(iconName) + '">' + (mgsNodeIcons[iconName] || '') + '</span>';
+      const collapseToggleHtml = '<button class="node-collapse-toggle" data-collapse-toggle="' + esc(n.id) + '" title="Collapse/expand node" aria-label="Toggle node body">' + (n.collapsed ? mgsChevronRight : mgsChevronDown) + '</button>';
+      const collapsedHint = n.collapsed ? '<div class="node-collapsed-hint">' + countHiddenContentLines(n.content) + ' lines hidden — click ⌄ to expand</div>' : '';
+      el.innerHTML = '<div class="node-header">' + nodeIconHtml + '<div class="node-color-dot"></div><div class="node-title">' + esc(n.title) + '</div>' + collapseToggleHtml + '</div>' + (renderedContent ? '<div class="node-content">' + renderedContent + '</div>' : collapsedHint) + ['top', 'right', 'bottom', 'left'].map(p => '<div class="port ' + p + '" data-port="' + p + '" title="Drag to connect"></div>').join('') + '<div class="resizer" title="Drag to resize"></div>';
       el.onpointerdown = e => {
         const intent = resolvePointerIntent(e, spaceDown);
         if (intent !== 'NODE_BODY') return;
@@ -170,6 +207,22 @@ export function getCanvasRenderingScript(): string {
           e.preventDefault();
           const href = link.dataset.href || link.getAttribute('href');
           if (href) vscode.postMessage({ type: 'openLink', href });
+          return;
+        }
+        const collapseToggle = e.target.closest('.node-collapse-toggle');
+        if (collapseToggle) {
+          e.stopPropagation();
+          e.preventDefault();
+          const nodeId = collapseToggle.dataset.collapseToggle;
+          if (nodeId) {
+            const node = findNode(nodeId);
+            const collapsed = node ? !node.collapsed : true;
+            vscode.postMessage({ type: 'toggleNodeCollapsed', id: nodeId, collapsed: collapsed });
+            if (node) {
+              node.collapsed = collapsed;
+              render();
+            }
+          }
           return;
         }
       };
@@ -214,7 +267,7 @@ export function getCanvasRenderingScript(): string {
       });
       nodes.append(el);
       const minimumHeight = getNodeMinimumHeight(el);
-      const targetHeight = manuallySized ? Math.max(n.height || 160, minimumHeight) : Math.min(380, Math.max(n.height || 160, minimumHeight));
+      const targetHeight = n.collapsed ? minimumHeight : (manuallySized ? Math.max(n.height || 160, minimumHeight) : Math.min(380, Math.max(n.height || 160, minimumHeight)));
       if (n.height !== targetHeight) {
         n.height = targetHeight;
         el.style.height = targetHeight + 'px';

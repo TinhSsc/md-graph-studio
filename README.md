@@ -24,7 +24,7 @@ Every second-level heading (`##`) is interpreted as a graph node. Wiki-style lin
 
 ```markdown
 ## Authentication
-<!-- graph-node: shape=diamond; color=yellow -->
+<!-- graph-node: shape=rectangle; color=yellow -->
 Validate user token and credentials.
 - [[Dashboard|success]] <!-- graph-edge: arrow=forward; line=solid; path=orthogonal -->
 - [[Login Error|invalid]] <!-- graph-edge: arrow=forward; line=dashed; path=orthogonal -->
@@ -37,7 +37,7 @@ Primary application overview.
 ```
 
 ### Supported Styles
-- **Node Shapes**: `rectangle`, `rounded-rectangle`, `circle`, `ellipse`, `diamond`, `triangle`.
+- **Node Shapes**: `rectangle`, `rounded-rectangle`.
 - **Node Colors**: `default`, `blue`, `green`, `yellow`, `red`, `purple`.
 - **Edge Types**: `orthogonal` routing with collision avoidance, rounded corners, and customizable line patterns (`solid`, `dashed`).
 
@@ -51,6 +51,11 @@ Primary application overview.
   - **Right Note Inspector**: In-place node title, Markdown body, shape, and color editing.
   - **Navigation Widget**: Smooth pan, zoom scale, and one-click fit-to-screen controls.
 - **Smart Edge Routing**: Orthogonal edge router with collision detection, border contact snapping, and draggable routing guide segments.
+- **Rich Markdown Node Bodies**: Inline emphasis (`**bold**`, `_italic_`, `~~strike~~`, `==highlight==`, `^^UPPERCASE^^` / `%%lowercase%%`), GFM tables, nested lists, horizontal rules, and bare-URL autolinks — all rendered on canvas while the Markdown source stays untouched.
+- **Document Health Checks**: Parser + validator diagnostics surface in the VS Code Problems panel, an on-canvas issues chip, and per-node warning badges.
+- **Quick Icon Assignment**: Give any node a custom icon (`icon=database`, `icon=book`, …) from a built-in icon grid — one click in the node action bar or right-click menu, multi-select aware. Shapes and colors are free visual choices with no enforced meaning.
+- **Node States**: Lock (button + drag/resize enforcement), collapse (header chevron), and ghost links (dashed, with Create/Delete actions).
+- **Format Bar & Sidebar Search**: Bold / Italic / Highlight toggle buttons at the bottom of the sidebar (works on text selection while editing, or the whole selected node), and a live outline filter at the top of the sidebar.
 - **Ghost Nodes**: Links pointing to non-existent sections appear as ghost nodes. Clicking or editing them automatically scaffolds the section in your Markdown file.
 - **Multi-Selection & Canvas Gestures**: Drag marquee selection, multi-node dragging with automatic edge updates, and keyboard nudging.
 

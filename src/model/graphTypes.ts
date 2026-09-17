@@ -1,4 +1,4 @@
-export const nodeShapes = ['rectangle', 'rounded-rectangle', 'circle', 'ellipse', 'diamond', 'triangle'] as const;
+export const nodeShapes = ['rectangle', 'rounded-rectangle'] as const;
 export const nodeColors = ['gray', 'blue', 'green', 'yellow', 'red', 'purple'] as const;
 export const arrowTypes = ['forward', 'backward', 'both', 'none'] as const;
 export const lineStyles = ['solid', 'dashed', 'dotted'] as const;
@@ -30,6 +30,7 @@ export interface GraphNode {
   layer?: number;
   collapsed: boolean;
   locked: boolean;
+  icon?: string;
   ghost: boolean;
   sourceRange?: SourceRange;
 }
@@ -78,7 +79,8 @@ export interface CanvasMeta {
   edges?: Record<string, CanvasEdgeEndpoints>;
   viewport: Viewport;
 }
-export interface GraphDiagnostic { message: string; offset?: number; }
+export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+export interface GraphDiagnostic { message: string; offset?: number; severity?: DiagnosticSeverity; code?: string; }
 export interface GraphDocument {
   preamble: string;
   nodes: GraphNode[];

@@ -1,8 +1,11 @@
 /**
  * Inspector panel and outline list handlers for md-graph-studio webview.
  */
+import { getNodeIconsScript } from './canvasIcons';
+
 export function getCanvasInspectorScript(): string {
   return `
+    ${getNodeIconsScript()}
     function highlightSelection() {
       document.body.classList.toggle('editing-edge', Boolean(selectedEdgeId));
       document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
@@ -26,6 +29,7 @@ export function getCanvasInspectorScript(): string {
         const item = document.createElement('div');
         item.className = 'outline-item' + (selectedNodeIds.has(n.id) ? ' selected' : '');
         item.innerHTML = '<div class="outline-badge" style="background:' + (colors[n.color] || n.color || '#7d8790') + '"></div>' +
+          '<span class="node-icon outline-node-icon" title="Icon: ' + esc(n.icon || 'file-text') + '">' + (mgsNodeIcons[n.icon] || mgsNodeIcons['file-text'] || '') + '</span>' +
           '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(n.title) + '</span>';
         item.onclick = () => {
           selectedNodeIds.clear();
@@ -68,7 +72,7 @@ export function getCanvasInspectorScript(): string {
       const delBtn = document.querySelector('#insp-del-multi');
       if (delBtn) {
         delBtn.onclick = () => {
-          selectedNodeIds.forEach(id => vscode.postMessage({ type: 'deleteNode', id }));
+          vscode.postMessage({ type: 'deleteNodes', ids: Array.from(selectedNodeIds) });
           selectedNodeIds.clear();
           render();
         };
