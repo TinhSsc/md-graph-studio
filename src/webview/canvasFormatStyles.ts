@@ -1,13 +1,20 @@
 /**
- * CSS for the sidebar format bar (#format-bar): compact row of Bold / Italic /
- * Highlight buttons pinned to the bottom of #sidebar-left. Reuses the CSS
+ * CSS for the floating format bar (#format-bar): compact Bold / Italic /
+ * Highlight controls that do not consume permanent canvas width. Reuses the CSS
  * custom properties defined by getCanvasStyles().
  */
 export function getCanvasFormatStyles(): string {
   return `
     #format-bar {
-      padding: 6px 8px;
-      border-top: 1px solid var(--rule);
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 35;
+      padding: 4px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      box-shadow: 0 3px 12px rgba(0,0,0,0.24);
       display: flex;
       align-items: center;
       gap: 4px;

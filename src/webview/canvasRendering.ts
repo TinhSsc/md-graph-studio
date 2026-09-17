@@ -285,7 +285,7 @@ export function getCanvasRenderingScript(): string {
     function render() {
       document.body.classList.toggle('editing-edge', Boolean(selectedEdgeId));
       nodes.innerHTML = ''; edgesGroup.innerHTML = ''; edgeHandlesGroup.innerHTML = '';
-      graph.nodes.forEach(renderNode); graph.edges.forEach(renderEdge); renderOutline(); view();
+      graph.nodes.forEach(renderNode); graph.edges.forEach(renderEdge); view();
       if (selectedNodeIds.size === 1) inspectNode(Array.from(selectedNodeIds)[0]); else if (selectedNodeIds.size > 1) inspectMulti(); else if (selectedEdgeId) inspectEdge(selectedEdgeId); else inspectEmpty();
     }
   `;

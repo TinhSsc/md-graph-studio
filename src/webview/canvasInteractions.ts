@@ -346,8 +346,7 @@ export function getCanvasInteractionsScript(): string {
         }
         if (commandKey && key === 'f') {
           e.preventDefault();
-          searchBox.focus();
-          searchBox.select();
+          vscode.postMessage({ type: 'focusOutline' });
           return;
         }
 

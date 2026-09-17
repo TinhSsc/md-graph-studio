@@ -13,6 +13,7 @@ export interface CanvasExplorer {
 export function registerCanvasExplorer(
   context: vscode.ExtensionContext,
   openCanvas: (uri: vscode.Uri) => Thenable<unknown>,
+  revealNode: (uri: vscode.Uri, nodeId: string) => Thenable<void> | void,
 ): CanvasExplorer {
   const canvases = new CanvasTreeProvider(context.workspaceState);
   const outline = new OutlineTreeProvider();
@@ -29,6 +30,10 @@ export function registerCanvasExplorer(
       if (selected?.[0]) await openCanvas(selected[0]);
     }),
     vscode.commands.registerCommand('markdownGraphStudio.openCanvas', async (uri: vscode.Uri) => openCanvas(uri)),
+    vscode.commands.registerCommand('markdownGraphStudio.revealNode', async (uri: vscode.Uri, nodeId: string) => {
+      await openCanvas(uri);
+      await revealNode(uri, nodeId);
+    }),
     vscode.commands.registerCommand('markdownGraphStudio.refreshCanvases', () => canvases.refresh()),
     vscode.workspace.onDidChangeTextDocument((event) => outline.updateDocument(event.document)),
   );
@@ -103,6 +108,13 @@ class OutlineTreeProvider implements vscode.TreeDataProvider<GraphNode> {
     item.description = node.explicitId ?? node.id;
     item.tooltip = `${node.title} (${node.id})`;
     item.iconPath = new vscode.ThemeIcon(node.icon || 'symbol-field');
+    if (this.documentUri) {
+      item.command = {
+        command: 'markdownGraphStudio.revealNode',
+        title: 'Reveal Node',
+        arguments: [vscode.Uri.parse(this.documentUri), node.id],
+      };
+    }
     return item;
   }
 

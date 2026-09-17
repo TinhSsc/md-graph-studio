@@ -11,7 +11,6 @@ import { getCanvasMarkdownRendererScript } from './canvasMarkdownRenderer';
 import { getCanvasRenderingScript } from './canvasRendering';
 import { getCanvasFormatPanelScript } from './canvasFormatPanel';
 import { getCanvasDiagnosticsScript } from './canvasDiagnosticsScript';
-import { getCanvasSidebarSearchScript } from './canvasSidebarSearch';
 import { getCanvasUiControlsScript } from './canvasUiControls';
 import { getCanvasActionBarScript } from './canvasActionBar';
 import { getCanvasPopoversScript } from './canvasPopovers';
@@ -42,9 +41,7 @@ export function getCanvasScript(data: string): string {
     const marquee = document.querySelector('#selection-marquee');
     const editorBody = document.querySelector('#editor-body');
     const editorRight = document.querySelector('#editor-right');
-    const outlineList = document.querySelector('#outline-list');
     const zoomVal = document.querySelector('#zoom-val');
-    const searchBox = document.querySelector('#search-box');
     const contextMenu = document.querySelector('#context-menu');
     const shortcutsModal = document.querySelector('#shortcuts-modal');
 
@@ -465,7 +462,6 @@ export function getCanvasScript(data: string): string {
     };
 
     ${getCanvasUiControlsScript()}
-    ${getCanvasSidebarSearchScript()}
     ${getCanvasPopoversScript()}
     ${getCanvasActionBarScript()}
 
@@ -473,6 +469,20 @@ export function getCanvasScript(data: string): string {
     window.addEventListener('dragstart', e => e.preventDefault());
 
     window.addEventListener('message', event => {
+      if (event.data?.type === 'revealNode') {
+        const node = findNode(event.data.nodeId);
+        if (!node) return;
+        selectedNodeIds.clear();
+        selectedNodeIds.add(node.id);
+        selectedEdgeId = null;
+        const bounds = canvas.getBoundingClientRect();
+        const nodeEl = document.querySelector('#node-' + CSS.escape(node.id));
+        pan.x = bounds.width / 2 - (node.x + (nodeEl?.offsetWidth || node.width || 240) / 2) * pan.zoom;
+        pan.y = bounds.height / 2 - (node.y + (nodeEl?.offsetHeight || node.height || 160) / 2) * pan.zoom;
+        render();
+        scheduleSaveViewport();
+        return;
+      }
       if (event.data?.type !== 'graph') return;
       const incomingRevision = Number(event.data.graph?.meta?.revision ?? 0);
       if (incomingRevision < appliedRevision) return;

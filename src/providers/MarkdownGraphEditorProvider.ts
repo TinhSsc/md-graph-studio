@@ -28,6 +28,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   private sidecarManager = new SidecarStorageManager();
   private documentMetaCache = new Map<string, CanvasMeta | null>();
   private documentViews = new Map<string, Set<() => void>>();
+  private documentPanels = new Map<string, Set<vscode.WebviewPanel>>();
   private graphDiagnosticCollection = vscode.languages.createDiagnosticCollection('Markdown Graph Studio');
   private graphClipboard: GraphClipboard | null = null;
   private clipboardPasteCount = 0;
@@ -52,6 +53,13 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   // Cập nhật metadata trong bộ nhớ đệm cho tài liệu
   public setCachedMeta(uri: vscode.Uri, meta: CanvasMeta | null): void {
     this.documentMetaCache.set(uri.toString(), meta);
+  }
+
+  public revealNode(uri: vscode.Uri, nodeId: string): void {
+    for (const panel of this.documentPanels.get(uri.toString()) ?? []) {
+      panel.reveal(panel.viewColumn, true);
+      void panel.webview.postMessage({ type: 'revealNode', nodeId });
+    }
   }
 
   // Khởi tạo và liên kết custom editor với webview panel
@@ -108,6 +116,9 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       }
     };
     const uriKey = document.uri.toString();
+    const panels = this.documentPanels.get(uriKey) ?? new Set<vscode.WebviewPanel>();
+    panels.add(panel);
+    this.documentPanels.set(uriKey, panels);
     const views = this.documentViews.get(uriKey) ?? new Set<() => void>();
     views.add(sendGraph);
     this.documentViews.set(uriKey, views);
@@ -117,6 +128,10 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
 
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() === document.uri.toString()) sendGraph();
+    });
+    panel.onDidDispose(() => {
+      panels.delete(panel);
+      if (panels.size === 0) this.documentPanels.delete(uriKey);
     });
     panel.webview.onDidReceiveMessage(async (message: unknown) => {
       if (!isMessage(message)) return;
@@ -289,6 +304,10 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   // Xử lý các thông điệp định tuyến lưu trữ và chỉnh sửa từ webview
   private async handleMessage(document: vscode.TextDocument, value: unknown, docDir: vscode.Uri, localRoots: string[]): Promise<void> {
     if (!isMessage(value)) return;
+    if (value.type === 'focusOutline') {
+      await vscode.commands.executeCommand('markdownGraphStudio.outline.focus');
+      return;
+    }
     const text = document.getText();
     const graph = parseMarkdownGraph(text);
     const mode = this.getStorageMode();

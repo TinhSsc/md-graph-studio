@@ -70,7 +70,5 @@ export function getCanvasNodeIdentityStyles(): string {
     .node-collapse-toggle:hover { background: var(--hover-bg); color: var(--ink); opacity: 1; }
     .node-collapse-toggle svg { display: block; }
 
-    .outline-item .node-icon { opacity: 0.75; }
-    .outline-item .node-icon svg { width: 11px; height: 11px; }
   `;
 }

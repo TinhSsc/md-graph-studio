@@ -50,81 +50,11 @@ export function getCanvasStyles(): string {
     }
     .icon-btn:hover { color: var(--ink); background: var(--hover-bg); }
 
-    /* Compact Left Sidebar: Outline & Nodes */
-    #sidebar-left {
-      width: 155px;
-      background: var(--panel);
-      border-right: 1px solid var(--rule);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      z-index: 30;
-      transition: margin-left 0.2s ease;
-    }
-    #sidebar-left.collapsed { margin-left: -155px; }
-    .sidebar-header {
-      padding: 9px 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--rule);
-      font-weight: 600;
-      font-size: 11.5px;
-    }
-    .outline-list { flex: 1; overflow-y: auto; padding: 6px 4px; }
-    .sidebar-search-row {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--rule);
-      color: var(--muted);
-    }
-    .sidebar-search-row > svg { flex-shrink: 0; }
-    #search-box {
-      flex: 1;
-      width: 100%;
-      min-width: 0;
-      padding: 3px 7px;
-      border-radius: 5px;
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
-      font-size: 11px;
-    }
-    #search-count { font-size: 9.5px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
-    .outline-item {
-      padding: 4px 6px;
-      border-radius: 5px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 2px;
-      font-size: 11px;
-      transition: background 0.12s;
-    }
-    .outline-item:hover { background: var(--hover-bg); }
-    .outline-item.selected { background: color-mix(in srgb, var(--focus) 24%, transparent); font-weight: 600; color: #fff; }
-    .outline-badge { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-
-    #expand-sidebar-left {
-      position: absolute;
-      left: 10px;
-      top: 12px;
-      z-index: 35;
-      background: var(--panel);
-      border: 1px solid var(--rule);
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      display: none;
-    }
-    #sidebar-left.collapsed ~ #canvas-container #expand-sidebar-left { display: flex; }
-
     /* Floating Top Quick Toolbar */
     #toolbar-top {
       position: absolute;
       top: 12px;
-      left: calc(155px + 14px);
+      left: 12px;
       height: 40px;
       background: color-mix(in srgb, var(--panel) 88%, transparent);
       backdrop-filter: blur(10px);
@@ -169,12 +99,11 @@ export function getCanvasStyles(): string {
       background: #4a98e5;
       box-shadow: 0 0 4px currentColor;
     }
-    #sidebar-left.collapsed ~ #canvas-container #toolbar-top { left: 46px; }
     #toolbar-top.collapsed { transform: translateY(-55px); opacity: 0; pointer-events: none; }
     #expand-toolbar-top {
       position: absolute;
       top: 12px;
-      left: calc(180px + 16px);
+      left: 12px;
       z-index: 24;
       background: var(--panel);
       border: 1px solid var(--rule);
@@ -185,7 +114,6 @@ export function getCanvasStyles(): string {
       font-weight: 600;
       font-size: 11px;
     }
-    #sidebar-left.collapsed ~ #canvas-container #expand-toolbar-top { left: 46px; }
     #toolbar-top.collapsed ~ #expand-toolbar-top { display: inline-flex; }
     .divider { width: 1px; height: 15px; background: var(--rule); margin: 0 2px; }
 

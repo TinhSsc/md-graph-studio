@@ -7,8 +7,9 @@ import { registerCanvasExplorer } from './explorer/CanvasExplorer';
 // Kích hoạt tiện ích mở rộng Markdown Graph Studio
 export function activate(context: vscode.ExtensionContext): void {
   const openCanvas = (uri: vscode.Uri): Thenable<unknown> => vscode.commands.executeCommand('vscode.openWith', uri, MarkdownGraphEditorProvider.viewType);
-  const explorer = registerCanvasExplorer(context, openCanvas);
-  const editorProvider = new MarkdownGraphEditorProvider((document) => explorer.trackDocument(document));
+  let editorProvider: MarkdownGraphEditorProvider;
+  const explorer = registerCanvasExplorer(context, openCanvas, (uri, nodeId) => editorProvider.revealNode(uri, nodeId));
+  editorProvider = new MarkdownGraphEditorProvider((document) => explorer.trackDocument(document));
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, editorProvider));
   context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async () => {
     const editor = vscode.window.activeTextEditor;

@@ -1,5 +1,5 @@
 /**
- * Inspector panel and outline list handlers for md-graph-studio webview.
+ * Inspector panel handlers for md-graph-studio webview.
  */
 import { getNodeIconsScript } from './canvasIcons';
 
@@ -10,7 +10,6 @@ export function getCanvasInspectorScript(): string {
       document.body.classList.toggle('editing-edge', Boolean(selectedEdgeId));
       document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
       document.querySelectorAll('.edge.selected').forEach(el => el.classList.remove('selected'));
-      document.querySelectorAll('.outline-item.selected').forEach(el => el.classList.remove('selected'));
 
       selectedNodeIds.forEach(id => {
         const el = document.querySelector('#node-' + CSS.escape(id));
@@ -20,46 +19,6 @@ export function getCanvasInspectorScript(): string {
         const el = document.querySelector('#edge-' + CSS.escape(selectedEdgeId));
         if (el) el.classList.add('selected');
       }
-      renderOutlineSelection();
-    }
-
-    function renderOutline() {
-      outlineList.innerHTML = '';
-      graph.nodes.forEach(n => {
-        const item = document.createElement('div');
-        item.className = 'outline-item' + (selectedNodeIds.has(n.id) ? ' selected' : '');
-        item.innerHTML = '<div class="outline-badge" style="background:' + (colors[n.color] || n.color || '#7d8790') + '"></div>' +
-          '<span class="node-icon outline-node-icon" title="Icon: ' + esc(n.icon || 'file-text') + '">' + (mgsNodeIcons[n.icon] || mgsNodeIcons['file-text'] || '') + '</span>' +
-          '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(n.title) + '</span>';
-        item.onclick = () => {
-          selectedNodeIds.clear();
-          selectedNodeIds.add(n.id);
-          selectedEdgeId = null;
-          highlightSelection();
-          inspectNode(n.id);
-          editorRight.classList.remove('collapsed');
-
-          const r = canvas.getBoundingClientRect();
-          const nodeEl = document.querySelector('#node-' + CSS.escape(n.id));
-          const nw = nodeEl ? nodeEl.offsetWidth : 140;
-          const nh = nodeEl ? nodeEl.offsetHeight : 50;
-          pan.x = (r.width / 2) - (n.x + nw / 2) * pan.zoom;
-          pan.y = (r.height / 2) - (n.y + nh / 2) * pan.zoom;
-          view();
-          scheduleSaveViewport();
-        };
-        outlineList.append(item);
-      });
-    }
-
-    function renderOutlineSelection() {
-      const items = outlineList.querySelectorAll('.outline-item');
-      graph.nodes.forEach((n, idx) => {
-        if (items[idx]) {
-          if (selectedNodeIds.has(n.id)) items[idx].classList.add('selected');
-          else items[idx].classList.remove('selected');
-        }
-      });
     }
 
     function inspectEmpty() {

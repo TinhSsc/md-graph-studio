@@ -3,6 +3,7 @@ import template from './canvasTemplate.html';
 
 export function getCanvasTemplate(): string {
   const toolbarTemplate = template
+    .replace('<button class="icon-btn" id="expand-sidebar-left" title="Expand Outline">{{folder}}</button>', '')
     .replace(
       '<button id="add" title="Add new node (N)" style="font-weight:600;">{{plus}} Node</button>',
       '<button class="icon-btn" id="btn-create-template" title="Create full Markdown template">{{filePlus}}</button><button id="add" title="Add new node (N)" style="font-weight:600;">{{plus}} Node</button>',
