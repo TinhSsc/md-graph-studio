@@ -8,7 +8,7 @@ export const contentLimits = {
   text: 2000,
 } as const;
 
-export const nodeContentKinds = ['image', 'link', 'list', 'task', 'code', 'tag', 'quote'] as const;
+export const nodeContentKinds = ['image', 'link', 'list', 'task', 'code', 'tag', 'quote', 'table'] as const;
 export type NodeContentKind = (typeof nodeContentKinds)[number];
 
 export type NodeContentPayload =
@@ -18,7 +18,8 @@ export type NodeContentPayload =
   | { kind: 'task'; text: string }
   | { kind: 'code'; language: string; code: string }
   | { kind: 'tag'; name: string }
-  | { kind: 'quote'; text: string };
+  | { kind: 'quote'; text: string }
+  | { kind: 'table'; cols?: number; rows?: number; markdown?: string };
 
 export function isNodeContentPayload(value: unknown): value is NodeContentPayload {
   if (typeof value !== 'object' || value === null) return false;
@@ -40,6 +41,10 @@ export function isNodeContentPayload(value: unknown): value is NodeContentPayloa
         && isBoundedString(payload.code, contentLimits.code, false);
     case 'tag':
       return isBoundedString(payload.name, contentLimits.tag, true);
+    case 'table':
+      return (payload.cols === undefined || (typeof payload.cols === 'number' && payload.cols >= 1 && payload.cols <= 20))
+        && (payload.rows === undefined || (typeof payload.rows === 'number' && payload.rows >= 1 && payload.rows <= 50))
+        && (payload.markdown === undefined || typeof payload.markdown === 'string');
     default:
       return false;
   }

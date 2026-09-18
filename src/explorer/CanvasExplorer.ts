@@ -17,10 +17,14 @@ export function registerCanvasExplorer(
 ): CanvasExplorer {
   const canvases = new CanvasTreeProvider(context.workspaceState);
   const outline = new OutlineTreeProvider();
+  const outlineView = vscode.window.createTreeView('markdownGraphStudio.outline', {
+    treeDataProvider: outline,
+    showCollapseAll: true,
+  });
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('markdownGraphStudio.canvases', canvases),
-    vscode.window.registerTreeDataProvider('markdownGraphStudio.outline', outline),
+    outlineView,
     vscode.commands.registerCommand('markdownGraphStudio.pickCanvas', async () => {
       const selected = await vscode.window.showOpenDialog({
         canSelectMany: false,
@@ -35,6 +39,36 @@ export function registerCanvasExplorer(
       await revealNode(uri, nodeId);
     }),
     vscode.commands.registerCommand('markdownGraphStudio.refreshCanvases', () => canvases.refresh()),
+    vscode.commands.registerCommand('markdownGraphStudio.searchNodes', async () => {
+      const allNodes = outline.getAllNodes();
+      const docUri = outline.getDocumentUri();
+      if (!allNodes.length || !docUri) {
+        void vscode.window.showInformationMessage('Open a Markdown canvas first to search nodes.');
+        return;
+      }
+      const items = allNodes.map((node) => ({
+        label: node.title,
+        description: node.explicitId && node.explicitId !== node.title ? `#${node.explicitId}` : undefined,
+        detail: node.content ? node.content.slice(0, 100).replace(/\r?\n/g, ' ') : undefined,
+        nodeId: node.id,
+        iconPath: new vscode.ThemeIcon(node.icon || 'symbol-field'),
+      }));
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Search node by title, ID or content...',
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+      if (picked) {
+        const uri = vscode.Uri.parse(docUri);
+        await openCanvas(uri);
+        await revealNode(uri, picked.nodeId);
+      }
+    }),
+    vscode.commands.registerCommand('markdownGraphStudio.clearNodeFilter', () => {
+      outline.setFilter('');
+      outlineView.message = undefined;
+      void vscode.commands.executeCommand('setContext', 'markdownGraphStudio.hasNodeFilter', false);
+    }),
     vscode.workspace.onDidChangeTextDocument((event) => outline.updateDocument(event.document)),
   );
 
@@ -101,12 +135,16 @@ class OutlineTreeProvider implements vscode.TreeDataProvider<GraphNode> {
   private readonly changed = new vscode.EventEmitter<void>();
   private documentUri: string | undefined;
   private nodes: GraphNode[] = [];
+  private filterQuery = '';
   public readonly onDidChangeTreeData = this.changed.event;
 
   public getTreeItem(node: GraphNode): vscode.TreeItem {
     const item = new vscode.TreeItem(node.title, vscode.TreeItemCollapsibleState.None);
-    item.description = node.explicitId ?? node.id;
-    item.tooltip = `${node.title} (${node.id})`;
+    // Only display description when explicitId is meaningful and doesn't duplicate title
+    if (node.explicitId && node.explicitId !== node.title && !node.title.includes(node.explicitId)) {
+      item.description = `#${node.explicitId}`;
+    }
+    item.tooltip = `${node.title}${node.explicitId ? ` (#${node.explicitId})` : ''}`;
     item.iconPath = new vscode.ThemeIcon(node.icon || 'symbol-field');
     if (this.documentUri) {
       item.command = {
@@ -119,7 +157,31 @@ class OutlineTreeProvider implements vscode.TreeDataProvider<GraphNode> {
   }
 
   public getChildren(): GraphNode[] {
+    if (!this.filterQuery) return this.nodes;
+    return this.nodes.filter((node) => {
+      const q = this.filterQuery;
+      return node.title.toLowerCase().includes(q)
+        || node.id.toLowerCase().includes(q)
+        || (node.explicitId && node.explicitId.toLowerCase().includes(q))
+        || (node.content && node.content.toLowerCase().includes(q));
+    });
+  }
+
+  public setFilter(query: string): void {
+    this.filterQuery = query.trim().toLowerCase();
+    this.changed.fire();
+  }
+
+  public getFilter(): string {
+    return this.filterQuery;
+  }
+
+  public getAllNodes(): GraphNode[] {
     return this.nodes;
+  }
+
+  public getDocumentUri(): string | undefined {
+    return this.documentUri;
   }
 
   public setDocument(document: vscode.TextDocument): void {

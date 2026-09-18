@@ -147,8 +147,6 @@ export function getCanvasUiControlsScript(): string {
 
     const fitToolbarBtn = document.querySelector('#btn-fit');
     if (fitToolbarBtn) fitToolbarBtn.onclick = () => fitToView();
-    const exportToolbarBtn = document.querySelector('#btn-export');
-    if (exportToolbarBtn) exportToolbarBtn.onclick = () => exportGraphPng();
 
     document.querySelector('#fit').onclick = () => fitToView();
     zoomVal.onclick = () => { pan.zoom = 1; view(); scheduleSaveViewport(); };

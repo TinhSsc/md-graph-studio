@@ -79,7 +79,117 @@ export function getCanvasInteractionsScript(): string {
         .map(value => '<option' + (value === selected ? ' selected' : '') + '>' + value + '</option>').join('');
     }
 
-    function buildNodeContextMenuHtml(nodeId, node) {
+    function identifyNodeComponent(clickedEl) {
+      if (!clickedEl) return { type: 'node' };
+
+      const cell = clickedEl.closest('.node-table th, .node-table td');
+      if (cell) {
+        const table = cell.closest('.node-table');
+        const nodeEl = cell.closest('.node');
+        const allTables = nodeEl ? Array.from(nodeEl.querySelectorAll('.node-table')) : [];
+        const tableIndex = Math.max(0, allTables.indexOf(table));
+        const isHeader = Boolean(cell.closest('thead'));
+        let row = -1;
+        if (!isHeader && table) {
+          const trs = Array.from(table.querySelectorAll('tbody tr'));
+          row = trs.indexOf(cell.closest('tr'));
+        }
+        const parentRow = cell.parentElement;
+        const col = parentRow ? Array.from(parentRow.children).indexOf(cell) : 0;
+        return {
+          type: 'tableCell',
+          element: cell,
+          tableIndex,
+          row,
+          col,
+          raw: cell.innerText.trim()
+        };
+      }
+
+      const tableWrap = clickedEl.closest('.node-table-wrap, .node-table');
+      if (tableWrap) {
+        const nodeEl = tableWrap.closest('.node');
+        const allTables = nodeEl ? Array.from(nodeEl.querySelectorAll('.node-table')) : [];
+        const targetTable = tableWrap.classList.contains('node-table') ? tableWrap : tableWrap.querySelector('.node-table');
+        const tableIndex = Math.max(0, allTables.indexOf(targetTable));
+        return {
+          type: 'table',
+          element: tableWrap,
+          tableIndex
+        };
+      }
+
+      const taskItem = clickedEl.closest('.node-task-item');
+      if (taskItem) {
+        const textEl = taskItem.querySelector('.task-text');
+        const checkbox = taskItem.querySelector('.task-checkbox');
+        const taskIndex = textEl ? parseInt(textEl.dataset.taskIndex, 10) : NaN;
+        return {
+          type: 'task',
+          element: taskItem,
+          taskIndex,
+          isDone: checkbox ? checkbox.checked : false,
+          text: textEl ? textEl.innerText.trim() : ''
+        };
+      }
+
+      const editBlock = clickedEl.closest('[data-edit-kind]');
+      if (editBlock) {
+        const kind = editBlock.dataset.editKind;
+        const index = parseInt(editBlock.dataset.editIndex, 10);
+        return {
+          type: kind,
+          element: editBlock,
+          index,
+          raw: decodeURIComponent(editBlock.dataset.raw || '')
+        };
+      }
+
+      const codeBlock = clickedEl.closest('.node-code-block');
+      if (codeBlock) {
+        const codeEl = codeBlock.querySelector('code');
+        const langEl = codeBlock.querySelector('.code-language');
+        return {
+          type: 'code',
+          element: codeBlock,
+          index: codeEl ? parseInt(codeEl.dataset.editIndex, 10) : 0,
+          codeEl,
+          langEl
+        };
+      }
+
+      const linkEl = clickedEl.closest('.node-link');
+      if (linkEl) {
+        return {
+          type: 'link',
+          element: linkEl,
+          href: linkEl.dataset.href || linkEl.getAttribute('href') || ''
+        };
+      }
+
+      const imgEl = clickedEl.closest('.node-img, .node-image-container');
+      if (imgEl) {
+        const img = imgEl.tagName === 'IMG' ? imgEl : imgEl.querySelector('img');
+        return {
+          type: 'image',
+          element: imgEl,
+          src: img ? img.getAttribute('src') || '' : '',
+          alt: img ? img.getAttribute('alt') || '' : ''
+        };
+      }
+
+      const titleEl = clickedEl.closest('.node-title, .node-header');
+      if (titleEl) {
+        return {
+          type: 'title',
+          element: titleEl
+        };
+      }
+
+      return { type: 'node' };
+    }
+
+    function buildNodeContextMenuHtml(nodeId, node, component) {
       const isMulti = selectedNodeIds.size > 1 && selectedNodeIds.has(nodeId);
       if (node && node.ghost) {
         return contextMenuItemHtml('ctx-create-node', 'Create node') +
@@ -99,10 +209,62 @@ export function getCanvasInteractionsScript(): string {
         html += contextMenuItemHtml('ctx-cut-nodes', 'Cut ' + styleIds.length + ' nodes    Ctrl+X');
         html += contextMenuItemHtml('ctx-del-node', 'Delete ' + styleIds.length + ' nodes', 'menu-item-danger');
       } else {
-        html = contextMenuItemHtml('ctx-edit-node', 'Edit Node') +
-          contextMenuFieldHtml('ctx-node-shape', 'Shape', shapeOptionsHtml(node?.shape)) +
+        const comp = component || { type: 'node' };
+        if (comp.type === 'tableCell') {
+          html = contextMenuItemHtml('ctx-edit-cell', 'Edit Cell') +
+            contextMenuItemHtml('ctx-insert-row-above', 'Insert Row Above') +
+            contextMenuItemHtml('ctx-insert-row-below', 'Insert Row Below') +
+            contextMenuItemHtml('ctx-del-row', 'Delete Row') +
+            contextMenuItemHtml('ctx-insert-col-left', 'Insert Column Left') +
+            contextMenuItemHtml('ctx-insert-col-right', 'Insert Column Right') +
+            contextMenuItemHtml('ctx-del-col', 'Delete Column') +
+            contextMenuItemHtml('ctx-span-cell', 'Span Across 2 Columns') +
+            contextMenuFieldHtml('ctx-table-col-align', 'Col Align',
+              '<option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>') +
+            contextMenuItemHtml('ctx-del-table', 'Delete Table', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'table') {
+          html = contextMenuItemHtml('ctx-insert-row-below', 'Insert Row Below') +
+            contextMenuItemHtml('ctx-insert-col-right', 'Insert Column Right') +
+            contextMenuItemHtml('ctx-del-table', 'Delete Table', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'task') {
+          html = contextMenuItemHtml('ctx-edit-task', 'Edit Task') +
+            contextMenuItemHtml('ctx-toggle-task', comp.isDone ? 'Mark Incomplete' : 'Mark Completed') +
+            contextMenuItemHtml('ctx-del-task', 'Delete Task', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'listItem') {
+          html = contextMenuItemHtml('ctx-edit-block', 'Edit List Item') +
+            contextMenuItemHtml('ctx-del-block', 'Delete List Item', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'code' || comp.type === 'codeLanguage') {
+          html = contextMenuItemHtml('ctx-edit-code', 'Edit Code') +
+            contextMenuItemHtml('ctx-copy-code', 'Copy Code') +
+            contextMenuItemHtml('ctx-del-block', 'Delete Code Block', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'quote') {
+          html = contextMenuItemHtml('ctx-edit-block', 'Edit Quote') +
+            contextMenuItemHtml('ctx-del-block', 'Delete Quote', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'paragraph') {
+          html = contextMenuItemHtml('ctx-edit-block', 'Edit Paragraph') +
+            contextMenuItemHtml('ctx-del-block', 'Delete Paragraph', 'menu-item-danger') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'link') {
+          html = contextMenuItemHtml('ctx-open-link', 'Open Link') +
+            contextMenuItemHtml('ctx-copy-link', 'Copy Link URL') +
+            '<div class="menu-divider"></div>';
+        } else if (comp.type === 'title') {
+          html = contextMenuItemHtml('ctx-edit-title', 'Edit Title') +
+            contextMenuItemHtml('ctx-change-icon', 'Change Icon...') +
+            '<div class="menu-divider"></div>';
+        } else {
+          html = contextMenuItemHtml('ctx-edit-node', 'Edit Node');
+        }
+
+        html += contextMenuFieldHtml('ctx-node-shape', 'Shape', shapeOptionsHtml(node?.shape)) +
           contextMenuFieldHtml('ctx-node-color', 'Color', colorOptionsHtml(node?.color)) +
-          contextMenuItemHtml('ctx-change-icon', 'Change Icon...') +
+          (comp.type !== 'title' ? contextMenuItemHtml('ctx-change-icon', 'Change Icon...') : '') +
           contextMenuItemHtml('ctx-toggle-lock', node && node.locked ? 'Unlock node' : 'Lock node') +
           contextMenuItemHtml('ctx-toggle-collapse', node && node.collapsed ? 'Expand' : 'Collapse') +
           contextMenuItemHtml('ctx-duplicate-node', 'Duplicate node') +
@@ -125,9 +287,11 @@ export function getCanvasInteractionsScript(): string {
       const wp = screenToWorld(clientX, clientY);
 
       let html = '';
+      let component = { type: 'node' };
       if (clickedNode) {
         const nodeId = clickedNode.id.replace('node-', '');
-        html = buildNodeContextMenuHtml(nodeId, findNode(nodeId));
+        component = identifyNodeComponent(clickedEl);
+        html = buildNodeContextMenuHtml(nodeId, findNode(nodeId), component);
       } else if (clickedEdgeId) {
         const edge = findEdge(clickedEdgeId);
         html = contextMenuItemHtml('ctx-edit-edge-label', edge?.label ? 'Edit label...' : 'Add label...') +
@@ -143,6 +307,7 @@ export function getCanvasInteractionsScript(): string {
         html += '<div class="menu-item" id="ctx-add-node">Add Empty Node</div>' +
           '<div class="menu-item" id="ctx-add-checklist-node">Add Checklist Node</div>' +
           '<div class="menu-item" id="ctx-add-code-node">Add Code Node</div>' +
+          '<div class="menu-item" id="ctx-add-table-node">Add Table Node</div>' +
           '<div class="menu-item" id="ctx-add-img-node">Add Image Node</div>' +
           '<div class="menu-divider"></div>';
       }
@@ -166,6 +331,8 @@ export function getCanvasInteractionsScript(): string {
       if (addChecklistBtn) addChecklistBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'checklist', x: wp.x, y: wp.y }); };
       const addCodeBtn = document.querySelector('#ctx-add-code-node');
       if (addCodeBtn) addCodeBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'code', x: wp.x, y: wp.y }); };
+      const addTableBtn = document.querySelector('#ctx-add-table-node');
+      if (addTableBtn) addTableBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'createRichNode', kind: 'table', x: wp.x, y: wp.y }); };
       const addImgBtn = document.querySelector('#ctx-add-img-node');
       if (addImgBtn) addImgBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'requestPickImage', x: wp.x, y: wp.y }); };
 
@@ -181,7 +348,7 @@ export function getCanvasInteractionsScript(): string {
       if (redoBtn) redoBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'redo' }); };
 
       if (clickedNode) {
-        wireNodeContextMenu(clickedNode);
+        wireNodeContextMenu(clickedNode, component);
       }
       if (clickedEdgeId) {
         const edge = findEdge(clickedEdgeId);
@@ -205,11 +372,192 @@ export function getCanvasInteractionsScript(): string {
       }
     }
 
-    function wireNodeContextMenu(clickedNode) {
+    function wireNodeContextMenu(clickedNode, component) {
       const nodeId = clickedNode.id.replace('node-', '');
       const node = findNode(nodeId);
       const isMulti = selectedNodeIds.size > 1 && selectedNodeIds.has(nodeId);
       const styleIds = isMulti ? Array.from(selectedNodeIds) : [nodeId];
+      const comp = component || { type: 'node' };
+
+      // Component-specific action wiring
+      if (comp.type === 'tableCell' || comp.type === 'table') {
+        const postTableAction = (action, extra) => {
+          closeContextMenu();
+          vscode.postMessage({
+            type: 'tableAction',
+            id: nodeId,
+            tableIndex: comp.tableIndex ?? 0,
+            row: comp.row ?? 0,
+            col: comp.col ?? 0,
+            action,
+            ...extra
+          });
+        };
+
+        const editCellBtn = document.querySelector('#ctx-edit-cell');
+        if (editCellBtn && comp.element) {
+          editCellBtn.onclick = () => {
+            closeContextMenu();
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeId);
+            highlightSelection();
+            if (node) startInlineTableCellEdit(node, comp.element);
+          };
+        }
+
+        const rowAboveBtn = document.querySelector('#ctx-insert-row-above');
+        if (rowAboveBtn) rowAboveBtn.onclick = () => postTableAction('insertRowAbove');
+
+        const rowBelowBtn = document.querySelector('#ctx-insert-row-below');
+        if (rowBelowBtn) rowBelowBtn.onclick = () => postTableAction('insertRowBelow');
+
+        const delRowBtn = document.querySelector('#ctx-del-row');
+        if (delRowBtn) delRowBtn.onclick = () => postTableAction('deleteRow');
+
+        const colLeftBtn = document.querySelector('#ctx-insert-col-left');
+        if (colLeftBtn) colLeftBtn.onclick = () => postTableAction('insertColLeft');
+
+        const colRightBtn = document.querySelector('#ctx-insert-col-right');
+        if (colRightBtn) colRightBtn.onclick = () => postTableAction('insertColRight');
+
+        const delColBtn = document.querySelector('#ctx-del-col');
+        if (delColBtn) delColBtn.onclick = () => postTableAction('deleteCol');
+
+        const spanBtn = document.querySelector('#ctx-span-cell');
+        if (spanBtn) spanBtn.onclick = () => postTableAction('spanCells', { spanCount: 2 });
+
+        const delTableBtn = document.querySelector('#ctx-del-table');
+        if (delTableBtn) delTableBtn.onclick = () => postTableAction('deleteTable');
+
+        const alignSelect = document.querySelector('#ctx-table-col-align');
+        if (alignSelect) {
+          alignSelect.onchange = () => {
+            postTableAction('setColAlign', { align: alignSelect.value });
+          };
+        }
+      }
+
+      if (comp.type === 'task') {
+        const editTaskBtn = document.querySelector('#ctx-edit-task');
+        if (editTaskBtn && comp.element) {
+          editTaskBtn.onclick = () => {
+            closeContextMenu();
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeId);
+            highlightSelection();
+            const textEl = comp.element.querySelector('.task-text');
+            if (node && textEl) startInlineTaskEdit(node, textEl);
+          };
+        }
+        const toggleTaskBtn = document.querySelector('#ctx-toggle-task');
+        if (toggleTaskBtn && !isNaN(comp.taskIndex)) {
+          toggleTaskBtn.onclick = () => {
+            closeContextMenu();
+            vscode.postMessage({ type: 'toggleTask', id: nodeId, taskIndex: comp.taskIndex });
+          };
+        }
+        const delTaskBtn = document.querySelector('#ctx-del-task');
+        if (delTaskBtn && !isNaN(comp.taskIndex)) {
+          delTaskBtn.onclick = () => {
+            closeContextMenu();
+            vscode.postMessage({ type: 'deleteTask', id: nodeId, taskIndex: comp.taskIndex });
+          };
+        }
+      }
+
+      if (comp.type === 'listItem' || comp.type === 'quote' || comp.type === 'paragraph') {
+        const editBlockBtn = document.querySelector('#ctx-edit-block');
+        if (editBlockBtn && comp.element) {
+          editBlockBtn.onclick = () => {
+            closeContextMenu();
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeId);
+            highlightSelection();
+            if (node) startInlineBlockEdit(node, comp.element);
+          };
+        }
+        const delBlockBtn = document.querySelector('#ctx-del-block');
+        if (delBlockBtn && comp.element) {
+          delBlockBtn.onclick = () => {
+            closeContextMenu();
+            vscode.postMessage({
+              type: 'updateMarkdownBlock',
+              id: nodeId,
+              blockKind: comp.type,
+              blockIndex: comp.index,
+              text: ''
+            });
+          };
+        }
+      }
+
+      if (comp.type === 'code' || comp.type === 'codeLanguage') {
+        const editCodeBtn = document.querySelector('#ctx-edit-code');
+        if (editCodeBtn && comp.element) {
+          editCodeBtn.onclick = () => {
+            closeContextMenu();
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeId);
+            highlightSelection();
+            const codeTarget = comp.codeEl || comp.element.querySelector('code');
+            if (node && codeTarget) startInlineBlockEdit(node, codeTarget);
+          };
+        }
+        const copyCodeBtn = document.querySelector('#ctx-copy-code');
+        if (copyCodeBtn && comp.element) {
+          copyCodeBtn.onclick = () => {
+            closeContextMenu();
+            const codeTarget = comp.codeEl || comp.element.querySelector('code');
+            if (codeTarget && navigator.clipboard) {
+              navigator.clipboard.writeText(codeTarget.innerText);
+            }
+          };
+        }
+        const delBlockBtn = document.querySelector('#ctx-del-block');
+        if (delBlockBtn && comp.element) {
+          delBlockBtn.onclick = () => {
+            closeContextMenu();
+            vscode.postMessage({
+              type: 'updateMarkdownBlock',
+              id: nodeId,
+              blockKind: 'code',
+              blockIndex: comp.index,
+              text: ''
+            });
+          };
+        }
+      }
+
+      if (comp.type === 'link') {
+        const openLinkBtn = document.querySelector('#ctx-open-link');
+        if (openLinkBtn && comp.href) {
+          openLinkBtn.onclick = () => {
+            closeContextMenu();
+            vscode.postMessage({ type: 'openLink', href: comp.href });
+          };
+        }
+        const copyLinkBtn = document.querySelector('#ctx-copy-link');
+        if (copyLinkBtn && comp.href) {
+          copyLinkBtn.onclick = () => {
+            closeContextMenu();
+            if (navigator.clipboard) navigator.clipboard.writeText(comp.href);
+          };
+        }
+      }
+
+      if (comp.type === 'title') {
+        const editTitleBtn = document.querySelector('#ctx-edit-title');
+        if (editTitleBtn) {
+          editTitleBtn.onclick = () => {
+            closeContextMenu();
+            selectedNodeIds.clear();
+            selectedNodeIds.add(nodeId);
+            highlightSelection();
+            const titleEl = clickedNode.querySelector('.node-title');
+            if (node && titleEl) startInlineNodeEdit(node, clickedNode, titleEl);
+          };
+        }
+      }
 
       const applyContextStyle = () => {
         const shapeEl = document.querySelector('#ctx-node-shape');
@@ -317,6 +665,48 @@ export function getCanvasInteractionsScript(): string {
 
         const commandKey = e.ctrlKey || e.metaKey;
         const key = e.key.toLowerCase();
+
+        if (commandKey && key === 'a') {
+          e.preventDefault();
+          selectedNodeIds.clear();
+          selectedEdgeId = null;
+          graph.nodes.forEach(n => selectedNodeIds.add(n.id));
+          highlightSelection();
+          if (selectedNodeIds.size === 1) {
+            inspectNode(Array.from(selectedNodeIds)[0]);
+            editorRight.classList.remove('collapsed');
+          } else if (selectedNodeIds.size > 1) {
+            inspectMulti();
+            editorRight.classList.remove('collapsed');
+          } else {
+            inspectEmpty();
+          }
+          updateNodeActionBar();
+          return;
+        }
+        if (commandKey && key === 'd' && selectedNodeIds.size > 0) {
+          e.preventDefault();
+          if (selectedNodeIds.size === 1) {
+            const singleId = Array.from(selectedNodeIds)[0];
+            vscode.postMessage({ type: 'duplicateNode', id: singleId });
+          } else {
+            vscode.postMessage({ type: 'copyNodes', ids: Array.from(selectedNodeIds) });
+            vscode.postMessage({ type: 'pasteNodes' });
+          }
+          return;
+        }
+        if (commandKey && (e.key === '=' || e.key === '+')) {
+          e.preventDefault();
+          const r = canvas.getBoundingClientRect();
+          zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.2);
+          return;
+        }
+        if (commandKey && (e.key === '-' || e.key === '_')) {
+          e.preventDefault();
+          const r = canvas.getBoundingClientRect();
+          zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.2);
+          return;
+        }
         if (commandKey && key === 'c' && selectedNodeIds.size > 0) {
           e.preventDefault();
           vscode.postMessage({ type: 'copyNodes', ids: Array.from(selectedNodeIds) });
@@ -347,6 +737,17 @@ export function getCanvasInteractionsScript(): string {
         if (commandKey && key === 'f') {
           e.preventDefault();
           vscode.postMessage({ type: 'focusOutline' });
+          return;
+        }
+
+        if (e.key === 'Enter' && selectedNodeIds.size === 1) {
+          e.preventDefault();
+          const singleId = Array.from(selectedNodeIds)[0];
+          const n = findNode(singleId);
+          const nodeEl = document.querySelector('#node-' + CSS.escape(singleId));
+          if (n && nodeEl) {
+            startInlineNodeEdit(n, nodeEl);
+          }
           return;
         }
 

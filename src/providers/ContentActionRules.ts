@@ -1,7 +1,8 @@
 import type { NodeContentPayload } from '../model/contentPayloads';
 import { createCodeBlock, createImageMarkdown, createTaskMarkdown } from '../parser/NodeContentActions';
+import { createDefaultTableMarkdown } from '../nodes/TableNode';
 
-export const richNodeKinds = ['empty', 'checklist', 'code', 'image'] as const;
+export const richNodeKinds = ['empty', 'checklist', 'code', 'image', 'table'] as const;
 export type RichNodeKind = (typeof richNodeKinds)[number];
 
 export const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'] as const;
@@ -76,6 +77,10 @@ export function buildRichNodeContent(kind: RichNodeKind, payload: NodeContentPay
       return createCodeBlock('text', '// Add code here');
     case 'image':
       return payload && payload.kind === 'image' && validateImageSrc(payload.src) ? createImageMarkdown(payload.alt, payload.src) : null;
+    case 'table':
+      return payload && payload.kind === 'table' && payload.markdown
+        ? payload.markdown
+        : createDefaultTableMarkdown(payload && payload.kind === 'table' ? payload.cols ?? 3 : 3, payload && payload.kind === 'table' ? payload.rows ?? 2 : 2);
     default:
       return null;
   }

@@ -788,8 +788,10 @@ export function getCanvasStyles(): string {
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 200;
-      width: 440px;
-      max-width: 90vw;
+      width: 520px;
+      max-width: 92vw;
+      max-height: 85vh;
+      overflow-y: auto;
       background: var(--panel);
       border: 1px solid var(--rule);
       border-radius: 12px;
@@ -798,8 +800,10 @@ export function getCanvasStyles(): string {
       display: none;
     }
     #shortcuts-modal.visible { display: block; }
-    .shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; margin-top: 12px; }
+    .shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-top: 8px; }
     .shortcut-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--rule); }
     .shortcut-row span { color: var(--muted); font-size: 11px; }
+    .shortcut-row b { font-size: 11px; color: var(--ink); text-align: right; }
+    .shortcuts-section-title { grid-column: 1 / -1; font-size: 10.5px; font-weight: 700; color: var(--focus); margin-top: 8px; margin-bottom: 1px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--focus); padding-bottom: 2px; }
   `;
 }

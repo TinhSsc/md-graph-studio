@@ -37,6 +37,7 @@ export function getCanvasMarkdownRendererScript(): string {
       let quoteIndex = 0;
       let listItemIndex = 0;
       let codeIndex = 0;
+      let tableIndex = 0;
       let inTaskRun = false;
 
       function closeList() {

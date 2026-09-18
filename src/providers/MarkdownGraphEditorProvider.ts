@@ -18,7 +18,7 @@ import { hydrateGraphWithStorageMode, type StorageMode } from '../storage/Hydrat
 import { removeEdgeState, removeNodeState, renameNodeState, setNodeCollapsedState } from '../state/CanvasStateReducer';
 import { updateNodeContentFromMessage } from './NodeContentMessages';
 import { collectGraphDiagnostics } from '../validation/GraphValidator';
-import { FULL_GRAPH_TEMPLATE } from '../templates/fullGraphTemplate';
+import { FULL_GRAPH_TEMPLATE, FULL_GRAPH_TEMPLATE_META } from '../templates/fullGraphTemplate';
 import { clearGraphDiagnostics, mapGraphDiagnostics, publishGraphDiagnostics, type DiagnosticCollectionLike, type MappedGraphDiagnostic } from './GraphDiagnosticsPublisher';
 
 type CanvasMessage = { type: string; editId?: string; [key: string]: unknown };
@@ -140,10 +140,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
         sendGraph();
         return;
       }
-      if (message.type === 'exportPng' && typeof message.dataUrl === 'string') {
-        await this.savePng(document, message.dataUrl);
-        return;
-      }
+
       if (message.type === 'createTemplate') {
         await this.createTemplate(document);
         return;
@@ -186,22 +183,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
 
   private editQueue: Promise<void> = Promise.resolve();
 
-  private async savePng(document: vscode.TextDocument, dataUrl: string): Promise<void> {
-    const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
-    if (!match) {
-      void vscode.window.showErrorMessage('Could not export PNG: invalid image data.');
-      return;
-    }
-    const defaultName = document.uri.path.replace(/\.md$/i, '.png');
-    const target = await vscode.window.showSaveDialog({
-      defaultUri: document.uri.with({ path: defaultName }),
-      filters: { 'PNG Image': ['png'] },
-      saveLabel: 'Export PNG',
-    });
-    if (!target) return;
-    await vscode.workspace.fs.writeFile(target, Buffer.from(match[1], 'base64'));
-    void vscode.window.showInformationMessage(`Exported ${target.path.split('/').pop() ?? 'graph.png'}.`);
-  }
+
 
   private async createTemplate(document: vscode.TextDocument): Promise<void> {
     const defaultPath = document.uri.path.replace(/[^/]+$/, 'graph-template.md');
@@ -213,6 +195,10 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     });
     if (!target) return;
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(FULL_GRAPH_TEMPLATE));
+    const sidecarCreated = await this.sidecarManager.writeSidecar(target, FULL_GRAPH_TEMPLATE_META);
+    if (!sidecarCreated) {
+      void vscode.window.showWarningMessage('Template created, but its layout JSON could not be written.');
+    }
     await vscode.commands.executeCommand('vscode.openWith', target, MarkdownGraphEditorProvider.viewType);
   }
 

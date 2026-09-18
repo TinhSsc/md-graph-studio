@@ -144,6 +144,8 @@ export function getCanvasActionBarScript(): string {
           dispatchContentAction('list', { kind: 'list', text: 'New item' }, nodeId);
         } else if (action === 'quote') {
           dispatchContentAction('quote', { kind: 'quote', text: 'New quote' }, nodeId);
+        } else if (action === 'table') {
+          dispatchContentAction('table', { kind: 'table', cols: 3, rows: 2 }, nodeId);
         } else if (action === 'lock') {
           const node = findNode(nodeId);
           if (node) {

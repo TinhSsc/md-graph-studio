@@ -18,10 +18,6 @@ export function getCanvasTemplate(): string {
     )
     .replace('<button class="icon-btn" id="btn-arrange" title="Auto arrange (left-to-right / top-to-bottom)">{{network}}<span class="menu-caret">{{chevronDown}}</span></button>', '')
     .replace(
-      '<button class="icon-btn" id="btn-fit" title="Fit to screen (F)">{{maximize}}</button>',
-      '<button class="icon-btn" id="btn-fit" title="Fit to screen (F)">{{maximize}}</button><button class="icon-btn" id="btn-export" title="Export full graph as PNG">{{download}}</button>',
-    )
-    .replace(
       '<div class="shortcut-row"><span>Nudge Node(s)</span><b>Arrow keys</b></div>',
       '<div class="shortcut-row"><span>Nudge Node(s)</span><b>Arrow keys</b></div><div class="shortcut-row"><span>Copy node(s)</span><b>Ctrl+C</b></div><div class="shortcut-row"><span>Cut node(s)</span><b>Ctrl+X</b></div><div class="shortcut-row"><span>Paste node(s)</span><b>Ctrl+V</b></div><div class="shortcut-row"><span>Undo / Redo</span><b>Ctrl+Z / Ctrl+Y</b></div>',
     );

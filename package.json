@@ -37,7 +37,9 @@
       { "command": "markdownGraphStudio.pickCanvas", "title": "Markdown Graph Studio: Open Canvas", "icon": "$(folder-opened)" },
       { "command": "markdownGraphStudio.refreshCanvases", "title": "Markdown Graph Studio: Refresh Canvases", "icon": "$(refresh)" },
       { "command": "markdownGraphStudio.convertToSidecar", "title": "Markdown Graph Studio: Convert to Sidecar Storage" },
-      { "command": "markdownGraphStudio.embedMetadata", "title": "Markdown Graph Studio: Embed Metadata into Markdown" }
+      { "command": "markdownGraphStudio.embedMetadata", "title": "Markdown Graph Studio: Embed Metadata into Markdown" },
+      { "command": "markdownGraphStudio.searchNodes", "title": "Search Nodes", "icon": "$(search)" },
+      { "command": "markdownGraphStudio.clearNodeFilter", "title": "Clear Filter", "icon": "$(clear-all)" }
     ],
     "viewsContainers": {
       "activitybar": [{
@@ -49,7 +51,7 @@
     "views": {
       "markdownGraphStudio": [
         { "id": "markdownGraphStudio.canvases", "name": "Canvases" },
-        { "id": "markdownGraphStudio.outline", "name": "Outline" }
+        { "id": "markdownGraphStudio.outline", "name": "Node" }
       ]
     },
     "viewsWelcome": [{
@@ -68,6 +70,14 @@
         "command": "markdownGraphStudio.refreshCanvases",
         "when": "view == markdownGraphStudio.canvases",
         "group": "navigation"
+      }, {
+        "command": "markdownGraphStudio.searchNodes",
+        "when": "view == markdownGraphStudio.outline",
+        "group": "navigation"
+      }, {
+        "command": "markdownGraphStudio.clearNodeFilter",
+        "when": "view == markdownGraphStudio.outline && markdownGraphStudio.hasNodeFilter",
+        "group": "navigation"
       }]
     },
     "customEditors": [{
@@ -82,7 +92,7 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "verify": "npm run check && npm test && npm run build",
-    "package": "npm run verify && vsce package --allow-missing-repository --out dist/markdown-graph-studio.vsix"
+    "package": "npm run verify && vsce package --no-dependencies --allow-missing-repository --out dist/markdown-graph-studio.vsix"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

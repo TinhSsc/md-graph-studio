@@ -3,7 +3,6 @@ import { getCanvasGeometryScript } from './canvasGeometry';
 import { getCanvasEdgeEndpointsScript } from './canvasEdgeEndpoints';
 import { getCanvasEdgeRouterScript } from './canvasEdgeRouter';
 import { getCanvasEdgeSegmentsScript } from './canvasEdgeSegments';
-import { getCanvasExportScript } from './canvasExport';
 import { getCanvasInspectorScript } from './canvasInspector';
 import { getCanvasNodeEditingScript } from './canvasNodeEditing';
 import { getCanvasInteractionsScript } from './canvasInteractions';
@@ -128,7 +127,6 @@ export function getCanvasScript(data: string): string {
     ${getCanvasRenderingScript()}
     ${getCanvasFormatPanelScript()}
     ${getCanvasDiagnosticsScript()}
-    ${getCanvasExportScript()}
 
     function applyNodeDragPosition(point) {
       if (!dragGroup || !point) return;

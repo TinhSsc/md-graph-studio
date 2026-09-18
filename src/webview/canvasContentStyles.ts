@@ -40,6 +40,7 @@ export function getCanvasContentStyles(): string {
       border: 1px solid var(--rule);
       padding: 3px 6px;
       text-align: left;
+      position: relative;
     }
     .node-table th {
       background: color-mix(in srgb, var(--panel) 80%, transparent);
@@ -49,6 +50,23 @@ export function getCanvasContentStyles(): string {
     }
     .node-table tbody tr:nth-child(even) {
       background: color-mix(in srgb, var(--ink) 4%, transparent);
+    }
+    .node-table-cell {
+      cursor: cell;
+      user-select: text;
+      transition: background 0.1s ease;
+    }
+    .node-table-cell:hover {
+      background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+    }
+    .node-table-cell[contenteditable="true"] {
+      outline: 2px solid var(--accent) !important;
+      outline-offset: -1px;
+      background: var(--panel) !important;
+      color: var(--ink) !important;
+      cursor: text !important;
+      border-radius: 2px;
+      z-index: 2;
     }
   `;
 }

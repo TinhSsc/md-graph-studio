@@ -2,6 +2,7 @@
 src/**
 tests/**
 debug/**
+docs/**
 node_modules/**
 *.ts
 tsconfig.json

@@ -1,128 +1,182 @@
 # Markdown Graph Studio
 
-Visual graph editor and interactive diagram workspace for semantic Markdown notes, directly inside VS Code.
+Visual node-graph editor and interactive diagram workspace for Markdown documents, directly inside VS Code.
 
-> [!WARNING]
-> **Project Status: Public Beta (Work in Progress)**  
-> Markdown Graph Studio is currently under active development. Core features are functional, but canvas metadata structures, features, and UI behaviors may evolve prior to stable release. Feedback and issue reports are welcome.
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.95.0-blue.svg)](https://code.visualstudio.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/tests-338%20passed-brightgreen.svg)](#)
 
 ---
 
 ## Overview
 
-**Markdown Graph Studio** bridges the gap between text-based knowledge bases and visual node-graph diagrams. It renders Markdown documents as interactive node-and-edge graphs while keeping standard Markdown syntax as the strict single source of truth.
+**Markdown Graph Studio** turns standard Markdown files into visual, interactive node-and-edge diagrams while keeping plain Markdown as the strict, single source of truth.
 
-- **Non-destructive**: Section titles and Markdown text remain plain Markdown. Diagram positions, node styling, and viewport coordinates are safely serialized into a trailing `<!-- canvas-meta -->` comment.
-- **Embedded inside VS Code**: No browser instances, external servers, or proprietary cloud accounts required.
-- **Bi-directional**: Open as a dedicated custom editor or side-by-side with your standard Markdown text editor.
+- **Zero Vendor Lock-in**: Nodes are level-2 headings (`##`), connections are standard wikilinks (`[[target]]`), and content uses standard GitHub Flavored Markdown (GFM).
+- **Clean Markdown (Sidecar Storage)**: Layout coordinates, zoom levels, and viewport settings can be stored in an external `.md.graph.json` sidecar file, keeping your Markdown text completely free of diagram noise.
+- **Native VS Code Integration**: Runs as a Custom Editor with dedicated Activity Bar views (`Canvases` and `Node` search outline), side-by-side editing, and instant two-way synchronization.
+- **Self-Contained & Private**: Operates entirely within your local workspace. No external servers, no cloud telemetry, and no browser dependencies.
 
 ---
 
 ## Markdown Syntax & Data Model
 
-Every second-level heading (`##`) is interpreted as a graph node. Wiki-style links (`[[Target]]` or `[[Target|Label]]`) define directional connections between nodes.
+Every second-level heading (`##`) defines a graph node. Wiki-style bullet items define directional connections.
 
 ```markdown
-## Authentication
-<!-- graph-node: shape=rectangle; color=yellow -->
-Validate user token and credentials.
-- [[Dashboard|success]] <!-- graph-edge: arrow=forward; line=solid; path=orthogonal -->
-- [[Login Error|invalid]] <!-- graph-edge: arrow=forward; line=dashed; path=orthogonal -->
+## Authentication Service {#auth-service}
+<!-- graph-node: shape=rounded-rectangle; color=blue; icon=shield -->
+Handles JWT token validation and OAuth2 session tokens.
 
-## Dashboard
-<!-- graph-node: shape=rounded-rectangle; color=green -->
-Primary application overview.
+- [[database-service|Read/Write Session]] <!-- graph-edge: arrow=forward; line=solid; path=orthogonal -->
+- [[audit-log|Security Events]] <!-- graph-edge: arrow=forward; line=dashed; path=orthogonal -->
 
-<!-- canvas-meta: {"zoom":1,"pan":{"x":0,"y":0},"nodes":{"Authentication":{"x":120,"y":80},"Dashboard":{"x":420,"y":80}}} -->
+## Database Service {#database-service}
+<!-- graph-node: shape=rectangle; color=green; icon=database -->
+PostgreSQL cluster storing persistent tenant records.
+
+## Audit Log {#audit-log}
+<!-- graph-node: shape=rounded-rectangle; color=gray; icon=file-text -->
+Append-only log for compliance tracking.
 ```
 
-### Supported Styles
-- **Node Shapes**: `rectangle`, `rounded-rectangle`.
-- **Node Colors**: `default`, `blue`, `green`, `yellow`, `red`, `purple`.
-- **Edge Types**: `orthogonal` routing with collision avoidance, rounded corners, and customizable line patterns (`solid`, `dashed`).
+### Supported Node & Edge Attributes
+
+| Attribute | Scope | Supported Values |
+| :--- | :--- | :--- |
+| `shape` | Node | `rectangle`, `rounded-rectangle` |
+| `color` | Node / Edge | `blue`, `green`, `yellow`, `red`, `purple`, `gray` |
+| `icon` | Node | 27 built-in icons (e.g. `server`, `database`, `shield`, `book`, `terminal`, `zap`, `lock`, `cloud`) |
+| `collapsed` | Node | `true`, `false` |
+| `locked` | Node | `true`, `false` |
+| `line` | Edge | `solid`, `dashed`, `dotted` |
+| `arrow` | Edge | `forward`, `backward`, `both`, `none` |
+| `from` / `to` | Edge | `top`, `right`, `bottom`, `left` |
+
+> [!TIP]
+> Explicit heading IDs (`{#node-id}`) are recommended. They ensure connectors and saved layout coordinates remain stable even if you rename the node title.
 
 ---
 
 ## Key Features
 
-- **4-Zone Studio Interface**:
-  - **Left Sidebar**: Node outline, search jump, and color filters (collapsible).
-  - **Top Floating Toolbar**: Quick node creation, default styling presets, and search overlay.
-  - **Right Note Inspector**: In-place node title, Markdown body, shape, and color editing.
-  - **Navigation Widget**: Smooth pan, zoom scale, and one-click fit-to-screen controls.
-- **Smart Edge Routing**: Orthogonal edge router with collision detection, border contact snapping, and draggable routing guide segments.
-- **Rich Markdown Node Bodies**: Inline emphasis (`**bold**`, `_italic_`, `~~strike~~`, `==highlight==`, `^^UPPERCASE^^` / `%%lowercase%%`), GFM tables, nested lists, horizontal rules, and bare-URL autolinks — all rendered on canvas while the Markdown source stays untouched.
-- **Document Health Checks**: Parser + validator diagnostics surface in the VS Code Problems panel, an on-canvas issues chip, and per-node warning badges.
-- **Quick Icon Assignment**: Give any node a custom icon (`icon=database`, `icon=book`, …) from a built-in icon grid — one click in the node action bar or right-click menu, multi-select aware. Shapes and colors are free visual choices with no enforced meaning.
-- **Node States**: Lock (button + drag/resize enforcement), collapse (header chevron), and ghost links (dashed, with Create/Delete actions).
-- **Format Bar & Sidebar Search**: Bold / Italic / Highlight toggle buttons at the bottom of the sidebar (works on text selection while editing, or the whole selected node), and a live outline filter at the top of the sidebar.
-- **Ghost Nodes**: Links pointing to non-existent sections appear as ghost nodes. Clicking or editing them automatically scaffolds the section in your Markdown file.
-- **Multi-Selection & Canvas Gestures**: Drag marquee selection, multi-node dragging with automatic edge updates, and keyboard nudging.
+### 1. Interactive GFM Tables
+- Click directly into table cells to edit inline.
+- Navigate across cells in 4 directions using arrow keys (<kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd>) or <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd>.
+- Context menu support: Insert/delete rows and columns, set column text alignment (left, center, right), and span across columns.
+
+### 2. Rich Content Blocks & Action Bar
+- Floating action bar for fast insertion: Images (workspace file or external URL), Links, Checklist Tasks, Code blocks, Tags, Quotes, and Tables.
+- Full markdown rendering on canvas: inline formatting (`**bold**`, `*italic*`, `~~strike~~`, `` `code` ``), autolinks, blockquotes, and fenced code blocks.
+- Interactive task items: toggle checkbox directly on canvas with automatic Markdown state synchronization.
+
+### 3. Smart Orthogonal Connector Routing
+- Automatic orthogonal edge routing with collision avoidance and border contact snapping.
+- Custom connection ports (`top`, `right`, `bottom`, `left`) for precise diagram architecture.
+- Draggable route bend handles and customizable line styles (`solid`, `dashed`, `dotted`), colors, and midpoint label pills.
+
+### 4. Activity Bar & Search Explorer
+- **Canvases View**: Displays recently accessed Markdown graphs in the active workspace with one-click opening.
+- **Node Outline View**: Tree structure of all nodes in the active graph with a live search filter (<kbd>Ctrl+F</kbd>) to instantly center and select any node on canvas.
+
+### 5. Flexible Storage Strategies
+- **Sidecar Mode (`sidecar`)** *(Default)*: Stores visual coordinates and viewport state in a sibling `.md.graph.json` file. Your `.md` file contains only pure Markdown.
+- **Embedded Mode (`embedded`)**: Appends an unobtrusive `<!-- canvas-meta: ... -->` comment at the end of your Markdown file.
+- **Stateless Mode (`stateless`)**: Computes layout dynamically without writing metadata files to disk.
 
 ---
 
-## Canvas Controls & Shortcuts
+## Configuration Settings
 
-| Action | Control / Shortcut |
+Configure extension behavior via VS Code Settings (<kbd>Ctrl+,</kbd> or <kbd>Cmd+,</kbd>):
+
+| Setting | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `markdownGraphStudio.storageMode` | `string` | `"sidecar"` | Layout metadata storage strategy: `sidecar` (`.md.graph.json`), `embedded` (in-file comment), or `stateless`. |
+| `markdownGraphStudio.sidecarNaming` | `string` | `"dot-md-graph-json"` | Sidecar file naming convention: `foo.md.graph.json` or `foo.graph.json`. |
+
+---
+
+## Command Palette Actions
+
+All commands are accessible via <kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>:
+
+| Command | Title | Description |
+| :--- | :--- | :--- |
+| `markdownGraphStudio.openAsGraph` | Open as Graph | Opens the active Markdown file in the visual graph studio. |
+| `markdownGraphStudio.openSideBySide` | Open Text and Graph Side by Side | Opens the text editor and graph editor side-by-side. |
+| `markdownGraphStudio.pickCanvas` | Open Canvas | Quick-pick selection of Markdown graphs in the workspace. |
+| `markdownGraphStudio.refreshCanvases` | Refresh Canvases | Refreshes the workspace graph list in the Activity Bar. |
+| `markdownGraphStudio.convertToSidecar` | Convert to Sidecar Storage | Migrates embedded metadata to external `.md.graph.json`. |
+| `markdownGraphStudio.embedMetadata` | Embed Metadata into Markdown | Inlines sidecar metadata into a `<!-- canvas-meta -->` comment. |
+| `markdownGraphStudio.searchNodes` | Search Nodes | Focuses the node search input in the Activity Bar. |
+| `markdownGraphStudio.clearNodeFilter` | Clear Filter | Clears the active node filter in the Activity Bar. |
+
+---
+
+## Keyboard Shortcuts & Canvas Controls
+
+### Canvas & Viewport
+
+| Action | Shortcut / Gesture |
 | :--- | :--- |
-| **Pan Canvas** | Middle Click + Drag (or Space + Left Click Drag) |
-| **Zoom Canvas** | Mouse Wheel / Zoom Controls (<kbd>Ctrl+0</kbd> to Fit, <kbd>Ctrl+1</kbd> to 100%) |
-| **Select Node** | Left Click |
-| **Multi-Select** | <kbd>Shift</kbd> + Left Click or Marquee Drag on Canvas |
-| **Add New Node** | Double Click Canvas / <kbd>N</kbd> / <kbd>Insert</kbd> |
-| **Delete Element** | <kbd>Delete</kbd> / <kbd>Backspace</kbd> |
-| **Nudge Selection** | Arrow keys (<kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd>) / Hold <kbd>Shift</kbd> for 50px |
-| **Find Node** | <kbd>Ctrl+F</kbd> |
-| **Shortcuts Cheatsheet** | <kbd>?</kbd> or <kbd>F1</kbd> |
+| **Pan Canvas** | Middle Mouse Drag or <kbd>Space</kbd> + Left Click Drag |
+| **Zoom In / Out** | Mouse Wheel or <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd> |
+| **Fit Graph to View** | <kbd>F</kbd> or <kbd>Ctrl+0</kbd> |
+| **Reset Zoom (100%)** | <kbd>Ctrl+1</kbd> |
+| **Deselect All** | <kbd>Escape</kbd> |
+
+### Nodes & Selection
+
+| Action | Shortcut / Gesture |
+| :--- | :--- |
+| **Create New Node** | <kbd>N</kbd> or <kbd>Insert</kbd> |
+| **Select All Nodes** | <kbd>Ctrl+A</kbd> |
+| **Multi-select** | <kbd>Shift</kbd> + Left Click or Marquee Drag on Canvas |
+| **Move Selection** | Left Click Drag selected node(s) |
+| **Duplicate Node(s)** | <kbd>Ctrl+D</kbd> |
+| **Inline Edit Node** | <kbd>Enter</kbd> (or Double Click) |
+| **Delete Selection** | <kbd>Delete</kbd> or <kbd>Backspace</kbd> |
+| **Copy / Cut / Paste** | <kbd>Ctrl+C</kbd> / <kbd>Ctrl+X</kbd> / <kbd>Ctrl+V</kbd> |
+| **Undo / Redo** | <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> |
+| **Connect Nodes** | Drag from white border port to target node |
+| **Resize Node** | Drag bottom-right corner grip |
+
+### Inline Editor & Table Navigation
+
+| Action | Shortcut / Gesture |
+| :--- | :--- |
+| **Navigate Cells / Tasks** | Arrow keys (<kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd>) at boundary |
+| **Next / Previous Cell** | <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> |
+| **Save & Finish Edit** | <kbd>Enter</kbd> (use <kbd>Ctrl+Enter</kbd> in multiline code) |
+| **Discard Changes** | <kbd>Escape</kbd> |
+| **Shortcuts Modal** | <kbd>?</kbd> or <kbd>F1</kbd> |
 
 ---
 
-## Getting Started
+## Development & Testing
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v20 or higher recommended)
 - [VS Code](https://code.visualstudio.com/) (v1.95.0 or higher)
 
-### Setup & Development
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/TinhSsc/md-graph-studio.git
-   cd md-graph-studio
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Compile extension:
-   ```bash
-   npm run build
-   ```
-
-4. Run tests and type checks:
-   ```bash
-   npm run verify
-   ```
-
-5. Press <kbd>F5</kbd> in VS Code to launch the Extension Development Host window for live debugging.
-
-### Building Package
-
-Generate an installable `.vsix` package:
+### Build & Verification Commands
 
 ```bash
+# Install dependencies
+npm install
+
+# Type check
+npm run check
+
+# Run automated tests
+npm test
+
+# Verify all checks (type check + tests + esbuild bundle)
+npm run verify
+
+# Package extension into .vsix file
 npm run package
 ```
 
-The resulting file is output to `dist/markdown-graph-studio.vsix`. Install it directly in VS Code via **Extensions: Install from VSIX...**
-
----
-
-## Upcoming Roadmap
-
-- [ ] Local image embedding thumbnail previews (`![alt](./path.png)`).
-- [ ] Tag filtering and tag-based visual grouping (`#tag` / `<!-- graph-tags -->`).
-- [ ] Group boundary containers (`<!-- graph-group -->`).
-- [ ] Vector export (SVG, PNG, and PDF canvas snapshots).
+The package command produces `dist/markdown-graph-studio.vsix`. You can test it locally in VS Code via **Extensions: Install from VSIX...**

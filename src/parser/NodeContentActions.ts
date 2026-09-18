@@ -1,6 +1,7 @@
 import type { GraphNode } from '../model/graphTypes';
 import type { NodeContentPayload } from '../model/contentPayloads';
 import { insertTaskAfterLastTask, taskFenceMask } from '../nodes/TaskNode';
+import { createDefaultTableMarkdown } from '../nodes/TableNode';
 export { createTaskMarkdown, deleteTask, insertTaskAfterLastTask, toggleTask, updateTaskText } from '../nodes/TaskNode';
 import { applyTextEdits, createNodeSection, updateNodeSection, type TextEdit } from './MarkdownGraphSerializer';
 
@@ -80,6 +81,7 @@ function renderBlock(payload: NodeContentPayload): string {
     case 'list': return createListItemMarkdown(payload.text);
     case 'code': return createCodeBlock(payload.language, payload.code);
     case 'quote': return createQuoteMarkdown(payload.text);
+    case 'table': return payload.markdown ?? createDefaultTableMarkdown(payload.cols ?? 3, payload.rows ?? 2);
     default: throw new Error(`Unsupported content kind: ${(payload as NodeContentPayload).kind}`);
   }
 }
