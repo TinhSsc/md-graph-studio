@@ -3,6 +3,8 @@
 Visual node-graph editor and interactive diagram workspace for Markdown documents, directly inside VS Code.
 
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.95.0-blue.svg)](https://code.visualstudio.com/)
+[![Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/TinhSsc.md-graph-studio?label=Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=TinhSsc.md-graph-studio)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/TinhSsc/md-graph-studio?label=Open%20VSX)](https://open-vsx.org/extension/TinhSsc/md-graph-studio)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/tests-338%20passed-brightgreen.svg)](#)
 
