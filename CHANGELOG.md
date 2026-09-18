@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+- **Fix Canvas Middle-Mouse Panning**: Fixed canvas panning getting stuck when the pointer leaves the canvas or window during middle-click drag via pointer capture, blur, and window listeners.
+- **Undo / Redo for Canvas Layout & Node Resizing**: Added full history stack tracking node dimension changes, dragging, and layout adjustments so <kbd>Ctrl+Z</kbd> and <kbd>Ctrl+Y</kbd> reliably undo and redo canvas operations.
+
 ## 1.1.0
 - **System Clipboard Synchronization**:
   - Copying (<kbd>Ctrl+C</kbd>) or cutting (<kbd>Ctrl+X</kbd>) selected nodes now copies standard Markdown directly to the OS system clipboard for instant pasting anywhere.

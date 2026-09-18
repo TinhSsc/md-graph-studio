@@ -48,8 +48,20 @@ export function getCanvasScript(data: string): string {
     let selectedEdgeId = null;
 
     let isPanning = false;
-    let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
+    let panStart = { x: 0, y: 0, panX: 0, panY: 0, isMiddle: false, pointerId: 0 };
     let spaceDown = false;
+
+    function resetPanning(pointerId) {
+      if (isPanning) {
+        isPanning = false;
+        canvas.classList.remove('panning');
+        scheduleSaveViewport();
+      }
+      const pid = pointerId !== undefined ? pointerId : panStart.pointerId;
+      if (pid) {
+        try { if (canvas.hasPointerCapture(pid)) canvas.releasePointerCapture(pid); } catch {}
+      }
+    }
 
     let isMarquee = false;
     let marqueeStart = { x: 0, y: 0 };
@@ -182,9 +194,17 @@ export function getCanvasScript(data: string): string {
 
       if (intent === 'CANVAS_PAN') {
         isPanning = true;
-        panStart = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        panStart = {
+          x: e.clientX,
+          y: e.clientY,
+          panX: pan.x,
+          panY: pan.y,
+          isMiddle: e.button === INTERACTION_CONFIG.buttons.auxiliary,
+          pointerId: e.pointerId,
+        };
         canvas.classList.add('panning');
         e.preventDefault();
+        try { canvas.setPointerCapture(e.pointerId); } catch {}
         return;
       }
 
@@ -228,6 +248,12 @@ export function getCanvasScript(data: string): string {
         return;
       }
       if (isPanning) {
+        const middleReleased = panStart.isMiddle && (e.buttons & 4) === 0;
+        const leftReleased = !panStart.isMiddle && !spaceDown && (e.buttons & 1) === 0;
+        if (e.buttons === 0 || middleReleased || leftReleased) {
+          resetPanning(e.pointerId);
+          return;
+        }
         pan.x = panStart.panX + (e.clientX - panStart.x);
         pan.y = panStart.panY + (e.clientY - panStart.y);
         view();
@@ -360,13 +386,12 @@ export function getCanvasScript(data: string): string {
         document.querySelectorAll('.node.drop-target').forEach(el => el.classList.remove('drop-target'));
       }
       if (isPanning) {
-        isPanning = false;
-        canvas.classList.remove('panning');
-        scheduleSaveViewport();
+        resetPanning(e.pointerId);
       }
 
       if (resizing) {
         const resizedNodeId = resizing.id;
+        try { if (resizing.pointerId && resizing.el) resizing.el.querySelector('.resizer')?.releasePointerCapture?.(resizing.pointerId); } catch {}
         vscode.postMessage({
           type: 'saveLayout',
           nodes: graph.nodes.map(n => ({
@@ -374,7 +399,7 @@ export function getCanvasScript(data: string): string {
             x: n.x,
             y: n.y,
             layer: n.layer,
-            ...(n.id === resizedNodeId ? { width: n.width, height: n.height } : {})
+            ...(typeof n.width === 'number' ? { width: n.width, height: n.height } : {})
           })),
           viewport: pan
         });
@@ -446,6 +471,24 @@ export function getCanvasScript(data: string): string {
         }
         connecting = null;
       }
+    });
+
+    window.addEventListener('pointercancel', e => {
+      resetPanning(e.pointerId);
+      if (resizing) resizing = null;
+      if (isMarquee) { isMarquee = false; marquee.style.display = 'none'; }
+      if (nodeDragCandidate) nodeDragCandidate = null;
+      if (dragGroup) dragGroup = null;
+      isNodeDragging = false;
+    });
+
+    window.addEventListener('blur', () => {
+      resetPanning();
+      if (resizing) resizing = null;
+      if (isMarquee) { isMarquee = false; marquee.style.display = 'none'; }
+      if (nodeDragCandidate) nodeDragCandidate = null;
+      if (dragGroup) dragGroup = null;
+      isNodeDragging = false;
     });
 
     canvas.onwheel = e => {

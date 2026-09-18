@@ -157,8 +157,8 @@ export function getCanvasRenderingScript(): string {
       el.className = 'node ' + (n.shape || 'rounded-rectangle') + (n.ghost ? ' ghost' : '') + (n.locked ? ' locked' : '') + (n.collapsed ? ' collapsed' : '') + (selectedNodeIds.has(n.id) ? ' selected' : '') + (manuallySized ? ' user-sized' : '');
       el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
       if (typeof n.layer === 'number') el.style.zIndex = String(n.layer);
-      if (n.resized || (n.width && n.width !== 240)) el.style.width = n.width + 'px';
-      if (n.resized || (n.height && n.height !== 160)) el.style.height = n.height + 'px';
+      if (typeof n.width === 'number' && n.width > 0) el.style.width = n.width + 'px';
+      if (typeof n.height === 'number' && n.height > 0) el.style.height = n.height + 'px';
       el.style.setProperty('--node-color', colors[n.color] || n.color || '#7d8790');
       const renderedContent = n.collapsed ? '' : renderMarkdownToHtml(n.content || '', n.id);
       const iconName = n.icon && mgsNodeIcons[n.icon] ? n.icon : 'file-text';
@@ -248,7 +248,8 @@ export function getCanvasRenderingScript(): string {
         re.preventDefault();
         n.resized = true;
         el.classList.add('user-sized');
-        resizing = { id: n.id, el, startX: re.clientX, startY: re.clientY, origW: el.offsetWidth, origH: el.offsetHeight };
+        resizing = { id: n.id, el, startX: re.clientX, startY: re.clientY, origW: el.offsetWidth, origH: el.offsetHeight, pointerId: re.pointerId };
+        try { if (re.target && re.target.setPointerCapture) re.target.setPointerCapture(re.pointerId); } catch {}
       };
       el.querySelectorAll('.port').forEach(port => {
         port.onpointerdown = pe => {

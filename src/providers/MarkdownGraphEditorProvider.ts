@@ -16,6 +16,7 @@ import { handleAppendNodeContent, handleCreateRichNode, handleRequestPickImage, 
 import { SidecarStorageManager } from '../storage/SidecarStorageManager';
 import { hydrateGraphWithStorageMode, type StorageMode } from '../storage/HydrationEngine';
 import { removeEdgeState, removeNodeState, renameNodeState, setNodeCollapsedState } from '../state/CanvasStateReducer';
+import { CanvasHistoryManager, type CanvasSnapshot } from '../state/CanvasHistoryManager';
 import { updateNodeContentFromMessage } from './NodeContentMessages';
 import { collectGraphDiagnostics } from '../validation/GraphValidator';
 import { FULL_GRAPH_TEMPLATE, FULL_GRAPH_TEMPLATE_META } from '../templates/fullGraphTemplate';
@@ -33,12 +34,14 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   public static readonly viewType = 'markdownGraphStudio.editor';
   private sidecarManager = new SidecarStorageManager();
   private documentMetaCache = new Map<string, CanvasMeta | null>();
-  private documentViews = new Map<string, Set<() => void>>();
+  private documentViews = new Map<string, Set<(force?: boolean) => void>>();
   private documentPanels = new Map<string, Set<vscode.WebviewPanel>>();
   private graphDiagnosticCollection = vscode.languages.createDiagnosticCollection('Markdown Graph Studio');
   private graphClipboard: GraphClipboard | null = null;
   private clipboardPasteCount = 0;
   private lastCopiedMarkdown = '';
+  private historyManagers = new Map<string, CanvasHistoryManager>();
+  private isRestoringHistory = false;
 
   constructor(
     private readonly hooks?: ((document: vscode.TextDocument) => Thenable<void> | void) | MarkdownGraphEditorHooks,
@@ -127,11 +130,11 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       const hydrated = hydrateGraphWithStorageMode(parsed, { mode, sidecarMeta });
       return this.withValidatorDiagnostics(layoutGraphDocument(hydrated), document.getText());
     };
-    const sendGraph = () => {
+    const sendGraph = (force: boolean = false) => {
       if (ready) {
         const g = currentGraph();
         g.resolvedImages = resolveImages(g);
-        void panel.webview.postMessage({ type: 'graph', graph: g });
+        void panel.webview.postMessage({ type: 'graph', graph: g, force });
         this.publishDocumentDiagnostics(document, g);
       }
     };
@@ -146,8 +149,15 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     initialGraph.resolvedImages = resolveImages(initialGraph);
     panel.webview.html = canvasHtml(initialGraph);
 
+    this.getHistoryManager(document.uri, document.getText());
+
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document.uri.toString() === document.uri.toString()) sendGraph();
+      if (event.document.uri.toString() === document.uri.toString()) {
+        sendGraph();
+        if (!this.isRestoringHistory) {
+          this.pushHistory(document.uri, event.document.getText());
+        }
+      }
     });
 
     panel.webview.onDidReceiveMessage(async (message: unknown) => {
@@ -164,7 +174,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       }
       if (message.type === 'undo' || message.type === 'redo') {
         this.editQueue = this.editQueue.then(async () => {
-          await vscode.commands.executeCommand(message.type);
+          await this.handleUndoRedo(document, message.type as 'undo' | 'redo');
         });
         return;
       }
@@ -178,10 +188,12 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
         await handled.catch((err) => {
           console.error('MarkdownGraphEditorProvider rich content error:', err);
         });
+        this.pushHistory(document.uri, document.getText());
         return;
       }
       this.editQueue = this.editQueue.then(async () => {
         await this.handleMessage(document, message, docDir, localRoots);
+        this.pushHistory(document.uri, document.getText());
       }).catch((err) => {
         console.error('MarkdownGraphEditorProvider error:', err);
       });
@@ -198,6 +210,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (!activeViews?.size) {
         this.documentViews.delete(uriKey);
         this.documentMetaCache.delete(uriKey);
+        this.historyManagers.delete(uriKey);
         clearGraphDiagnostics(this.diagnosticCollectionView, document.uri);
       }
     });
@@ -233,8 +246,70 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     await this.sidecarManager.writeSidecar(uri, meta);
   }
 
-  private broadcastGraph(uri: vscode.Uri): void {
-    for (const send of this.documentViews.get(uri.toString()) ?? []) send();
+  private broadcastGraph(uri: vscode.Uri, force: boolean = false): void {
+    for (const send of this.documentViews.get(uri.toString()) ?? []) send(force);
+  }
+
+  // Lấy hoặc khởi tạo bộ quản lý lịch sử thao tác hoàn tác và làm lại cho tài liệu
+  private getHistoryManager(uri: vscode.Uri, text: string): CanvasHistoryManager {
+    const key = uri.toString();
+    let manager = this.historyManagers.get(key);
+    if (!manager) {
+      manager = new CanvasHistoryManager();
+      const meta = this.getCachedMeta(uri);
+      manager.init({ text, meta });
+      this.historyManagers.set(key, manager);
+    }
+    return manager;
+  }
+
+  // Ghi nhận trạng thái hiện tại vào ngăn xếp lịch sử nếu không trong quá trình phục hồi
+  private pushHistory(uri: vscode.Uri, text: string): void {
+    if (this.isRestoringHistory) return;
+    const manager = this.getHistoryManager(uri, text);
+    const meta = this.getCachedMeta(uri);
+    manager.push({ text, meta });
+  }
+
+  // Phục hồi lại trạng thái văn bản và bố cục layout từ bản chụp lịch sử
+  private async restoreSnapshot(document: vscode.TextDocument, snapshot: CanvasSnapshot): Promise<void> {
+    const mode = this.getStorageMode();
+    this.isRestoringHistory = true;
+    try {
+      if (snapshot.meta) {
+        const nextMeta: CanvasMeta = {
+          ...snapshot.meta,
+          revision: (this.getCachedMeta(document.uri)?.revision ?? 0) + 1,
+        };
+        this.setCachedMeta(document.uri, nextMeta);
+        if (mode === 'sidecar') {
+          await this.sidecarManager.writeSidecar(document.uri, nextMeta);
+        }
+      } else {
+        this.setCachedMeta(document.uri, null);
+      }
+
+      const currentText = document.getText();
+      if (snapshot.text !== currentText) {
+        await this.apply(document, [{ start: 0, end: currentText.length, text: snapshot.text }]);
+      }
+
+      this.broadcastGraph(document.uri, true);
+    } finally {
+      this.isRestoringHistory = false;
+    }
+  }
+
+  // Xử lý lệnh hoàn tác hoặc làm lại từ phím tắt bàn phím hoặc menu ngữ cảnh
+  private async handleUndoRedo(document: vscode.TextDocument, type: 'undo' | 'redo'): Promise<void> {
+    const manager = this.getHistoryManager(document.uri, document.getText());
+    const targetSnapshot = type === 'undo' ? manager.undo() : manager.redo();
+    if (!targetSnapshot) {
+      await vscode.commands.executeCommand(type);
+      return;
+    }
+    await this.restoreSnapshot(document, targetSnapshot);
+    vscode.window.setStatusBarMessage(`${type === 'undo' ? 'Undo' : 'Redo'} applied`, 1500);
   }
 
   // Gộp chẩn đoán từ validator (pure) vào graph, không bao giờ làm vỡ luồng render
