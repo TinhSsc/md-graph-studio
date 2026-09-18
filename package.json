@@ -2,6 +2,7 @@
   "name": "md-graph-studio",
   "displayName": "Markdown Graph Studio",
   "description": "Edit semantic Markdown graphs entirely inside VS Code.",
+  "icon": "media/icon.png",
   "version": "0.1.0",
   "publisher": "local",
   "license": "MIT",
@@ -39,7 +40,10 @@
       { "command": "markdownGraphStudio.convertToSidecar", "title": "Markdown Graph Studio: Convert to Sidecar Storage" },
       { "command": "markdownGraphStudio.embedMetadata", "title": "Markdown Graph Studio: Embed Metadata into Markdown" },
       { "command": "markdownGraphStudio.searchNodes", "title": "Search Nodes", "icon": "$(search)" },
-      { "command": "markdownGraphStudio.clearNodeFilter", "title": "Clear Filter", "icon": "$(clear-all)" }
+      { "command": "markdownGraphStudio.clearNodeFilter", "title": "Clear Filter", "icon": "$(clear-all)" },
+      { "command": "markdownGraphStudio.removeCanvas", "title": "Remove from Recent Canvases", "icon": "$(close)" },
+      { "command": "markdownGraphStudio.clearRecentCanvases", "title": "Clear All Recent Canvases", "icon": "$(clear-all)" },
+      { "command": "markdownGraphStudio.closeOutline", "title": "Close Node Outline", "icon": "$(close)" }
     ],
     "viewsContainers": {
       "activitybar": [{
@@ -71,6 +75,14 @@
         "when": "view == markdownGraphStudio.canvases",
         "group": "navigation"
       }, {
+        "command": "markdownGraphStudio.clearRecentCanvases",
+        "when": "view == markdownGraphStudio.canvases",
+        "group": "navigation"
+      }, {
+        "command": "markdownGraphStudio.closeOutline",
+        "when": "view == markdownGraphStudio.outline",
+        "group": "navigation"
+      }, {
         "command": "markdownGraphStudio.searchNodes",
         "when": "view == markdownGraphStudio.outline",
         "group": "navigation"
@@ -78,6 +90,15 @@
         "command": "markdownGraphStudio.clearNodeFilter",
         "when": "view == markdownGraphStudio.outline && markdownGraphStudio.hasNodeFilter",
         "group": "navigation"
+      }],
+      "view/item/context": [{
+        "command": "markdownGraphStudio.removeCanvas",
+        "when": "view == markdownGraphStudio.canvases && viewItem == canvasItem",
+        "group": "inline"
+      }, {
+        "command": "markdownGraphStudio.removeCanvas",
+        "when": "view == markdownGraphStudio.canvases && viewItem == canvasItem",
+        "group": "1_modification"
       }]
     },
     "customEditors": [{

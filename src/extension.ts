@@ -9,7 +9,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const openCanvas = (uri: vscode.Uri): Thenable<unknown> => vscode.commands.executeCommand('vscode.openWith', uri, MarkdownGraphEditorProvider.viewType);
   let editorProvider: MarkdownGraphEditorProvider;
   const explorer = registerCanvasExplorer(context, openCanvas, (uri, nodeId) => editorProvider.revealNode(uri, nodeId));
-  editorProvider = new MarkdownGraphEditorProvider((document) => explorer.trackDocument(document));
+  editorProvider = new MarkdownGraphEditorProvider({
+    onDocumentOpened: (document) => explorer.trackDocument(document),
+    onDocumentActive: (document) => explorer.setActiveDocument(document),
+    onDocumentClosed: (uri) => explorer.clearOutline(uri),
+  });
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, editorProvider));
   context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async () => {
     const editor = vscode.window.activeTextEditor;

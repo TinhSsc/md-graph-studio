@@ -6,6 +6,10 @@ Visual node-graph editor and interactive diagram workspace for Markdown document
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/tests-338%20passed-brightgreen.svg)](#)
 
+<p align="center">
+  <img src="docs/demo.gif" alt="Markdown Graph Studio Demo" width="100%" />
+</p>
+
 ---
 
 ## Overview

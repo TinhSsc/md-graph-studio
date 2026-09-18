@@ -23,6 +23,12 @@ import { clearGraphDiagnostics, mapGraphDiagnostics, publishGraphDiagnostics, ty
 
 type CanvasMessage = { type: string; editId?: string; [key: string]: unknown };
 
+export interface MarkdownGraphEditorHooks {
+  onDocumentOpened?: (document: vscode.TextDocument) => Thenable<void> | void;
+  onDocumentActive?: (document: vscode.TextDocument) => void;
+  onDocumentClosed?: (uri: vscode.Uri) => void;
+}
+
 export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvider {
   public static readonly viewType = 'markdownGraphStudio.editor';
   private sidecarManager = new SidecarStorageManager();
@@ -33,7 +39,9 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   private graphClipboard: GraphClipboard | null = null;
   private clipboardPasteCount = 0;
 
-  constructor(private readonly onDocumentOpened?: (document: vscode.TextDocument) => Thenable<void> | void) {}
+  constructor(
+    private readonly hooks?: ((document: vscode.TextDocument) => Thenable<void> | void) | MarkdownGraphEditorHooks,
+  ) {}
 
   // View cấu trúc tối thiểu của DiagnosticCollection cho publisher thuần (vscode nạp chồng set nên cần cast)
   private get diagnosticCollectionView(): DiagnosticCollectionLike<vscode.Uri, vscode.Diagnostic> {
@@ -64,7 +72,18 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
 
   // Khởi tạo và liên kết custom editor với webview panel
   public async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
-    await this.onDocumentOpened?.(document);
+    const onOpened = typeof this.hooks === 'function' ? this.hooks : this.hooks?.onDocumentOpened;
+    const onActive = typeof this.hooks === 'object' ? this.hooks?.onDocumentActive : undefined;
+    const onClosed = typeof this.hooks === 'object' ? this.hooks?.onDocumentClosed : undefined;
+
+    await onOpened?.(document);
+    onActive?.(document);
+
+    panel.onDidChangeViewState((e) => {
+      if (e.webviewPanel.active) {
+        onActive?.(document);
+      }
+    });
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
     const docDir = vscode.Uri.joinPath(document.uri, '..');
     const localRoots = [docDir.fsPath, ...(folder ? [folder.uri.fsPath] : [])];
@@ -129,10 +148,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
     const changeListener = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document.uri.toString() === document.uri.toString()) sendGraph();
     });
-    panel.onDidDispose(() => {
-      panels.delete(panel);
-      if (panels.size === 0) this.documentPanels.delete(uriKey);
-    });
+
     panel.webview.onDidReceiveMessage(async (message: unknown) => {
       if (!isMessage(message)) return;
       if (message.type === 'ready') {
@@ -170,6 +186,11 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       });
     });
     panel.onDidDispose(() => {
+      panels.delete(panel);
+      if (panels.size === 0) {
+        this.documentPanels.delete(uriKey);
+        onClosed?.(document.uri);
+      }
       changeListener.dispose();
       const activeViews = this.documentViews.get(uriKey);
       activeViews?.delete(sendGraph);
