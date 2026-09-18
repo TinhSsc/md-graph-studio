@@ -15,22 +15,23 @@ export function activate(context: vscode.ExtensionContext): void {
     onDocumentClosed: (uri) => explorer.clearOutline(uri),
   });
   context.subscriptions.push(vscode.window.registerCustomEditorProvider(MarkdownGraphEditorProvider.viewType, editorProvider));
-  context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'markdown') {
-      vscode.window.showInformationMessage('Open a Markdown file before using Markdown Graph Studio.');
+  context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openAsGraph', async (targetUri?: vscode.Uri) => {
+    const uri = targetUri instanceof vscode.Uri ? targetUri : vscode.window.activeTextEditor?.document.uri;
+    if (!uri) {
+      vscode.window.showInformationMessage('Select or open a Markdown file before using Markdown Graph Studio.');
       return;
     }
-    await openCanvas(editor.document.uri);
+    await openCanvas(uri);
   }));
-  context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openSideBySide', async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.languageId !== 'markdown') {
-      vscode.window.showInformationMessage('Open a Markdown file before using Markdown Graph Studio.');
+  context.subscriptions.push(vscode.commands.registerCommand('markdownGraphStudio.openSideBySide', async (targetUri?: vscode.Uri) => {
+    const uri = targetUri instanceof vscode.Uri ? targetUri : vscode.window.activeTextEditor?.document.uri;
+    if (!uri) {
+      vscode.window.showInformationMessage('Select or open a Markdown file before using Markdown Graph Studio.');
       return;
     }
-    await vscode.window.showTextDocument(editor.document, { viewColumn: vscode.ViewColumn.One, preserveFocus: true });
-    await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, MarkdownGraphEditorProvider.viewType, vscode.ViewColumn.Beside);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preserveFocus: true });
+    await vscode.commands.executeCommand('vscode.openWith', uri, MarkdownGraphEditorProvider.viewType, vscode.ViewColumn.Beside);
   }));
 
   registerStorageMigrationCommands(context);

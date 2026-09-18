@@ -26,7 +26,12 @@
   ],
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Visualization", "Other"],
-  "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor", "onView:markdownGraphStudio.canvases"],
+  "activationEvents": [
+    "onCommand:markdownGraphStudio.openAsGraph",
+    "onCommand:markdownGraphStudio.openSideBySide",
+    "onCustomEditor:markdownGraphStudio.editor",
+    "onView:markdownGraphStudio.canvases"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
@@ -47,8 +52,8 @@
       }
     },
     "commands": [
-      { "command": "markdownGraphStudio.openAsGraph", "title": "Markdown Graph Studio: Open as Graph" },
-      { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side" },
+      { "command": "markdownGraphStudio.openAsGraph", "title": "Markdown Graph Studio: Open as Graph", "icon": "$(graph)" },
+      { "command": "markdownGraphStudio.openSideBySide", "title": "Markdown Graph Studio: Open Text and Graph Side by Side", "icon": "$(split-horizontal)" },
       { "command": "markdownGraphStudio.pickCanvas", "title": "Markdown Graph Studio: Open Canvas", "icon": "$(folder-opened)" },
       { "command": "markdownGraphStudio.refreshCanvases", "title": "Markdown Graph Studio: Refresh Canvases", "icon": "$(refresh)" },
       { "command": "markdownGraphStudio.convertToSidecar", "title": "Markdown Graph Studio: Convert to Sidecar Storage" },
@@ -79,7 +84,57 @@
       "view": "markdownGraphStudio.outline",
       "contents": "Open a canvas to see its nodes."
     }],
+    "keybindings": [
+      {
+        "command": "markdownGraphStudio.openAsGraph",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g",
+        "when": "editorLangId == markdown || resourceExtname == .md || resourceExtname == .markdown || filesExplorerFocus"
+      },
+      {
+        "command": "markdownGraphStudio.openSideBySide",
+        "key": "ctrl+alt+shift+g",
+        "mac": "cmd+alt+shift+g",
+        "when": "editorLangId == markdown || resourceExtname == .md || resourceExtname == .markdown || filesExplorerFocus"
+      }
+    ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "markdownGraphStudio.openAsGraph",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@1"
+        },
+        {
+          "command": "markdownGraphStudio.openSideBySide",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "markdownGraphStudio.openAsGraph",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@1"
+        },
+        {
+          "command": "markdownGraphStudio.openSideBySide",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@2"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "markdownGraphStudio.openAsGraph",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "1_open@1"
+        },
+        {
+          "command": "markdownGraphStudio.openSideBySide",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "1_open@2"
+        }
+      ],
       "view/title": [{
         "command": "markdownGraphStudio.pickCanvas",
         "when": "view == markdownGraphStudio.canvases",

@@ -113,16 +113,17 @@ Configure extension behavior via VS Code Settings (<kbd>Ctrl+,</kbd> or <kbd>Cmd
 
 All commands are accessible via <kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>:
 
-| Command | Title | Description |
-| :--- | :--- | :--- |
-| `markdownGraphStudio.openAsGraph` | Open as Graph | Opens the active Markdown file in the visual graph studio. |
-| `markdownGraphStudio.openSideBySide` | Open Text and Graph Side by Side | Opens the text editor and graph editor side-by-side. |
-| `markdownGraphStudio.pickCanvas` | Open Canvas | Quick-pick selection of Markdown graphs in the workspace. |
-| `markdownGraphStudio.refreshCanvases` | Refresh Canvases | Refreshes the workspace graph list in the Activity Bar. |
-| `markdownGraphStudio.convertToSidecar` | Convert to Sidecar Storage | Migrates embedded metadata to external `.md.graph.json`. |
-| `markdownGraphStudio.embedMetadata` | Embed Metadata into Markdown | Inlines sidecar metadata into a `<!-- canvas-meta -->` comment. |
-| `markdownGraphStudio.searchNodes` | Search Nodes | Focuses the node search input in the Activity Bar. |
-| `markdownGraphStudio.clearNodeFilter` | Clear Filter | Clears the active node filter in the Activity Bar. |
+| Command | Title | Shortcut | Description |
+| :--- | :--- | :--- | :--- |
+| `markdownGraphStudio.openAsGraph` | Open as Graph | <kbd>Ctrl+Alt+G</kbd> | Opens selected/active Markdown file in visual graph studio. Available in Explorer context & Editor title. |
+| `markdownGraphStudio.openSideBySide` | Open Text and Graph Side by Side | <kbd>Ctrl+Alt+Shift+G</kbd> | Opens Markdown text and visual graph canvas side-by-side. |
+| `markdownGraphStudio.pickCanvas` | Open Canvas | — | Quick-pick selection of Markdown graphs in the workspace. |
+| `markdownGraphStudio.refreshCanvases` | Refresh Canvases | — | Refreshes the workspace graph list in the Activity Bar. |
+| `markdownGraphStudio.convertToSidecar` | Convert to Sidecar Storage | — | Migrates embedded metadata to external `.md.graph.json`. |
+| `markdownGraphStudio.embedMetadata` | Embed Metadata into Markdown | — | Inlines sidecar metadata into a `<!-- canvas-meta -->` comment. |
+| `markdownGraphStudio.searchNodes` | Search Nodes | <kbd>Ctrl+F</kbd> | Focuses the node search input in the Activity Bar. |
+| `markdownGraphStudio.clearNodeFilter` | Clear Filter | — | Clears the active node filter in the Activity Bar. |
+| `markdownGraphStudio.closeOutline` | Close Node Outline | — | Clears the outline view in the Activity Bar. |
 
 ---
 
