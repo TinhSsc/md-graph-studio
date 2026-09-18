@@ -28,11 +28,6 @@ jobs:
       - name: Package Extension VSIX
         run: npx @vscode/vsce package --no-dependencies --allow-missing-repository --out dist/markdown-graph-studio.vsix
 
-      - name: Publish to VS Code Marketplace
-        if: env.VSCE_PAT != ''
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx @vscode/vsce publish --no-dependencies -p $VSCE_PAT
 
       - name: Publish to Open VSX Registry
         if: env.OVSX_PAT != ''
