@@ -3,7 +3,7 @@ import { autoLayout, layoutGraphDocument } from '../layout/AutoLayoutEngine';
 import { nodeColors, nodeShapes, type CanvasEdgeEndpoints, type CanvasMeta, type GraphDocument, type GraphEdge, type GraphNode, type LayoutDirection, type Port } from '../model/graphTypes';
 import { nodeIconIds } from '../model/nodeIcons';
 import { deleteEdgeDocument, deleteNodeDocument } from '../parser/GraphDeletion';
-import { captureGraphSelection, deleteGraphSelection, pasteGraphSelection, type GraphClipboard } from '../parser/GraphClipboard';
+import { captureGraphSelection, createClipboardFromMarkdown, deleteGraphSelection, pasteGraphSelection, serializeClipboardToMarkdown, type GraphClipboard } from '../parser/GraphClipboard';
 import { parseMarkdownGraph } from '../parser/MarkdownGraphParser';
 import { appendEdge, applyTextEdits, createNodeSection, serializeEdge, updateCanvasMeta, updateNodeSection } from '../parser/MarkdownGraphSerializer';
 import { updateNodeDocument } from '../parser/NodeDocumentUpdater';
@@ -38,6 +38,7 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
   private graphDiagnosticCollection = vscode.languages.createDiagnosticCollection('Markdown Graph Studio');
   private graphClipboard: GraphClipboard | null = null;
   private clipboardPasteCount = 0;
+  private lastCopiedMarkdown = '';
 
   constructor(
     private readonly hooks?: ((document: vscode.TextDocument) => Thenable<void> | void) | MarkdownGraphEditorHooks,
@@ -330,6 +331,12 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (captured) {
         this.graphClipboard = captured;
         this.clipboardPasteCount = 0;
+        const mdText = serializeClipboardToMarkdown(captured, text);
+        if (mdText) {
+          this.lastCopiedMarkdown = mdText;
+          await vscode.env.clipboard.writeText(mdText);
+          vscode.window.setStatusBarMessage(`Copied ${captured.nodes.length} node(s) to clipboard`, 2000);
+        }
       }
       return;
     }
@@ -338,6 +345,12 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (!captured) return;
       this.graphClipboard = captured;
       this.clipboardPasteCount = 0;
+      const mdText = serializeClipboardToMarkdown(captured, text);
+      if (mdText) {
+        this.lastCopiedMarkdown = mdText;
+        await vscode.env.clipboard.writeText(mdText);
+        vscode.window.setStatusBarMessage(`Cut ${captured.nodes.length} node(s) to clipboard`, 2000);
+      }
       const nextText = deleteGraphSelection(text, selectedIds, mode === 'embedded');
       if (mode === 'sidecar') await this.removeNodesFromSidecar(document.uri, nextText, selectedIds);
       await this.apply(document, [{ start: 0, end: text.length, text: nextText }]);
@@ -352,9 +365,28 @@ export class MarkdownGraphEditorProvider implements vscode.CustomTextEditorProvi
       if (mode === 'sidecar') this.broadcastGraph(document.uri);
       return;
     }
-    if (value.type === 'pasteNodes' && this.graphClipboard) {
+    if (value.type === 'pasteNodes') {
+      let clipboardToPaste = this.graphClipboard;
+      try {
+        const sysText = await vscode.env.clipboard.readText();
+        if (sysText && sysText.trim()) {
+          const sysTrimmed = sysText.trim();
+          if (!clipboardToPaste || sysTrimmed !== this.lastCopiedMarkdown.trim()) {
+            const parsedExternal = createClipboardFromMarkdown(sysTrimmed);
+            if (parsedExternal && parsedExternal.nodes.length > 0) {
+              clipboardToPaste = parsedExternal;
+              this.graphClipboard = parsedExternal;
+              this.clipboardPasteCount = 0;
+              this.lastCopiedMarkdown = sysTrimmed;
+            }
+          }
+        }
+      } catch {
+        // Ignored
+      }
+      if (!clipboardToPaste || clipboardToPaste.nodes.length === 0) return;
       this.clipboardPasteCount += 1;
-      const pasted = pasteGraphSelection(text, activeGraph, this.graphClipboard, this.clipboardPasteCount);
+      const pasted = pasteGraphSelection(text, activeGraph, clipboardToPaste, this.clipboardPasteCount);
       if (!pasted) return;
       let nextText = pasted.text;
       const currentMeta = this.getCachedMeta(document.uri) ?? graph.meta;

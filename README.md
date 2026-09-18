@@ -5,8 +5,9 @@ Visual node-graph editor and interactive diagram workspace for Markdown document
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.95.0-blue.svg)](https://code.visualstudio.com/)
 [![Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/TinhSsc.md-graph-studio?label=Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=TinhSsc.md-graph-studio)
 [![Open VSX Version](https://img.shields.io/open-vsx/v/TinhSsc/md-graph-studio?label=Open%20VSX)](https://open-vsx.org/extension/TinhSsc/md-graph-studio)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/toancao)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/tests-338%20passed-brightgreen.svg)](#)
+[![Build Status](https://img.shields.io/badge/tests-340%20passed-brightgreen.svg)](#)
 
 <p align="center">
   <img src="docs/preview.png" alt="Markdown Graph Studio Workspace Preview" width="100%" />
@@ -152,7 +153,7 @@ All commands are accessible via <kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>
 | **Duplicate Node(s)** | <kbd>Ctrl+D</kbd> |
 | **Inline Edit Node** | <kbd>Enter</kbd> (or Double Click) |
 | **Delete Selection** | <kbd>Delete</kbd> or <kbd>Backspace</kbd> |
-| **Copy / Cut / Paste** | <kbd>Ctrl+C</kbd> / <kbd>Ctrl+X</kbd> / <kbd>Ctrl+V</kbd> |
+| **Copy / Cut / Paste** | <kbd>Ctrl+C</kbd> / <kbd>Ctrl+X</kbd> / <kbd>Ctrl+V</kbd> (syncs Markdown with OS clipboard) |
 | **Undo / Redo** | <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> |
 | **Connect Nodes** | Drag from white border port to target node |
 | **Resize Node** | Drag bottom-right corner grip |
@@ -166,6 +167,16 @@ All commands are accessible via <kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>
 | **Save & Finish Edit** | <kbd>Enter</kbd> (use <kbd>Ctrl+Enter</kbd> in multiline code) |
 | **Discard Changes** | <kbd>Escape</kbd> |
 | **Shortcuts Modal** | <kbd>?</kbd> or <kbd>F1</kbd> |
+
+---
+
+## Support the Project
+
+If you find **Markdown Graph Studio** helpful, consider supporting its creator via Ko-fi:
+
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Project-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/toancao)
+
+Or donate directly at: [ko-fi.com/toancao](https://ko-fi.com/toancao)
 
 ---
 

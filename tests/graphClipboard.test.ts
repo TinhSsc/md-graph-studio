@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { captureGraphSelection, deleteGraphSelection, pasteGraphSelection } from '../src/parser/GraphClipboard';
+import {
+  captureGraphSelection,
+  createClipboardFromMarkdown,
+  deleteGraphSelection,
+  pasteGraphSelection,
+  serializeClipboardToMarkdown,
+} from '../src/parser/GraphClipboard';
 import { parseMarkdownGraph } from '../src/parser/MarkdownGraphParser';
 
 const source = `## Alpha
@@ -37,5 +43,36 @@ describe('graph clipboard', () => {
     const result = parseMarkdownGraph(deleted);
     expect(result.nodes.map(node => node.id)).toEqual(['Alpha']);
     expect(result.edges).toHaveLength(0);
+  });
+
+  it('serializes clipboard nodes to markdown text for system clipboard copy', () => {
+    const graph = parseMarkdownGraph(source);
+    const clipboard = captureGraphSelection(graph, new Set(['Alpha']));
+    expect(clipboard).not.toBeNull();
+
+    const mdWithSource = serializeClipboardToMarkdown(clipboard!, source);
+    expect(mdWithSource).toContain('## Alpha');
+    expect(mdWithSource).toContain('First node.');
+    expect(mdWithSource).toContain('[[Beta|uses]]');
+
+    const mdSynthetic = serializeClipboardToMarkdown(clipboard!);
+    expect(mdSynthetic).toContain('## Alpha');
+    expect(mdSynthetic).toContain('First node.');
+  });
+
+  it('creates graph clipboard from external markdown text or plain text', () => {
+    const extMd = `## External One\nNote 1 content\n\n## External Two\nNote 2 content\n- [[External One]]`;
+    const parsedMd = createClipboardFromMarkdown(extMd);
+    expect(parsedMd?.nodes).toHaveLength(2);
+    expect(parsedMd?.nodes.map(n => n.title)).toEqual(['External One', 'External Two']);
+    expect(parsedMd?.edges).toHaveLength(1);
+
+    const plain = `Quick reminder note\nCheck the server logs before deploy`;
+    const parsedPlain = createClipboardFromMarkdown(plain);
+    expect(parsedPlain?.nodes).toHaveLength(1);
+    expect(parsedPlain?.nodes[0].title).toBe('Quick reminder note');
+    expect(parsedPlain?.nodes[0].content).toBe('Check the server logs before deploy');
+
+    expect(createClipboardFromMarkdown('   ')).toBeNull();
   });
 });

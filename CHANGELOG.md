@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+- **System Clipboard Synchronization**:
+  - Copying (<kbd>Ctrl+C</kbd>) or cutting (<kbd>Ctrl+X</kbd>) selected nodes now copies standard Markdown directly to the OS system clipboard for instant pasting anywhere.
+  - Added status bar notification upon copying/cutting nodes.
+  - Pasting (<kbd>Ctrl+V</kbd>) on the canvas parses external Markdown or plain text from the clipboard to generate new graph nodes.
+- **Support Links**: Added Ko-fi support badge and links to README.
+
 ## 1.0.1
 - **Quick Open Keyboard Shortcuts**: Open any Markdown graph instantly via <kbd>Ctrl+Alt+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) or side-by-side with <kbd>Ctrl+Alt+Shift+G</kbd>.
 - **File Explorer Context Menu**: Right-click any `.md` file in the VS Code file explorer to open directly in Graph Studio or Side by Side.
