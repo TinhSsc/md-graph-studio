@@ -4,7 +4,7 @@
   "description": "Edit semantic Markdown graphs entirely inside VS Code.",
   "icon": "media/icon.png",
   "version": "1.0.0",
-  "publisher": "local",
+  "publisher": "TinhSsc",
   "license": "MIT",
   "repository": {
     "type": "git",
