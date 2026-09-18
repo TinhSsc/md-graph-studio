@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+- **Multi-Node Auto Arrange (Grid, Vertical, Horizontal, Sort A-Z & Z-A)**:
+  - Added new **Arrange** submenu in the canvas context menu when multiple nodes are selected.
+  - Supports arranging nodes into a compact square **Grid**, single **Vertical Column**, or **Horizontal Row**.
+  - Built-in alphabetical sorting (**Sort A → Z** and **Sort Z → A**) with Vietnamese & English locale collation.
+  - Floating **Quick Arrange Capsule Toolbar** (32px height) for quick layout switching and real-time gap spacing adjustment with Lucide SVG vector icons.
+- **Node Action Bar Stability**:
+  - Fixed an issue where the single-node floating action bar would intermittently remain visible after clicking empty canvas space or pressing <kbd>Escape</kbd>.
+  - Added dedicated close (`✕`) button to easily dismiss the action bar manually.
+  - Added global window `mouseleave` and canvas `pointerdown` cancellation for hover action bars.
+
 ## 1.1.1
 - **Fix Canvas Middle-Mouse Panning**: Fixed canvas panning getting stuck when the pointer leaves the canvas or window during middle-click drag via pointer capture, blur, and window listeners.
 - **Undo / Redo for Canvas Layout & Node Resizing**: Added full history stack tracking node dimension changes, dragging, and layout adjustments so <kbd>Ctrl+Z</kbd> and <kbd>Ctrl+Y</kbd> reliably undo and redo canvas operations.

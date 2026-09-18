@@ -13,6 +13,7 @@ import { getCanvasDiagnosticsScript } from './canvasDiagnosticsScript';
 import { getCanvasUiControlsScript } from './canvasUiControls';
 import { getCanvasActionBarScript } from './canvasActionBar';
 import { getCanvasPopoversScript } from './canvasPopovers';
+import { getCanvasArrangeScript } from './canvasArrange';
 
 /**
  * Tổng hợp và khởi tạo toàn bộ script điều khiển canvas webview từ các module chuyên biệt.
@@ -107,6 +108,9 @@ export function getCanvasScript(data: string): string {
         const prev = vscode.getState() || {};
         vscode.setState({ ...prev, pan: { x: pan.x, y: pan.y, zoom: pan.zoom } });
       } catch {}
+      if (typeof updateArrangeQuickBarPosition === 'function') {
+        updateArrangeQuickBarPosition();
+      }
     }
 
     function flushSaveViewport() {
@@ -134,6 +138,7 @@ export function getCanvasScript(data: string): string {
     ${getCanvasGeometryScript()}
     ${getCanvasInspectorScript()}
     ${getCanvasNodeEditingScript()}
+    ${getCanvasArrangeScript()}
     ${getCanvasInteractionsScript()}
     ${getCanvasMarkdownRendererScript()}
     ${getCanvasRenderingScript()}
@@ -214,6 +219,8 @@ export function getCanvasScript(data: string): string {
           selectedEdgeId = null;
           highlightSelection();
           inspectEmpty();
+          if (typeof hideArrangeQuickBar === 'function') hideArrangeQuickBar();
+          if (typeof hideNodeActionBar === 'function') hideNodeActionBar();
         }
         isMarquee = true;
         marqueeStart = { x: e.clientX, y: e.clientY };
@@ -415,6 +422,7 @@ export function getCanvasScript(data: string): string {
         } else if (selectedNodeIds.size > 1) {
           inspectMulti();
           editorRight.classList.remove('collapsed');
+          if (typeof showArrangeQuickBar === 'function') showArrangeQuickBar();
         }
       }
 
@@ -436,10 +444,14 @@ export function getCanvasScript(data: string): string {
           } else if (selectedNodeIds.size > 1) {
             inspectMulti();
             editorRight.classList.remove('collapsed');
+            if (typeof showArrangeQuickBar === 'function') showArrangeQuickBar();
           } else {
             inspectEmpty();
           }
           updateNodeActionBar();
+          if (selectedNodeIds.size < 2 && typeof hideArrangeQuickBar === 'function') {
+            hideArrangeQuickBar();
+          }
         } else if (dragGroup && dragGroup.moved) {
           if (pendingNodeDragPoint) {
             applyNodeDragPosition(pendingNodeDragPoint);
@@ -450,6 +462,9 @@ export function getCanvasScript(data: string): string {
             nodes: graph.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, layer: n.layer })),
             viewport: pan
           });
+          if (typeof updateArrangeQuickBarPosition === 'function') {
+            updateArrangeQuickBarPosition();
+          }
         }
         nodeDragCandidate = null;
         dragGroup = null;
@@ -505,6 +520,7 @@ export function getCanvasScript(data: string): string {
     ${getCanvasUiControlsScript()}
     ${getCanvasPopoversScript()}
     ${getCanvasActionBarScript()}
+    if (typeof wireArrangeUi === 'function') wireArrangeUi();
 
     setupKeyShortcuts();
     window.addEventListener('dragstart', e => e.preventDefault());

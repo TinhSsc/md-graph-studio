@@ -30,6 +30,8 @@ export function getCanvasActionBarStyles(): string {
     #node-action-bar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     #node-action-bar button[disabled] { opacity: 0.38; cursor: not-allowed; }
     #node-action-bar button.danger { color: #e57373; }
+    #node-action-bar button[data-action="close"]:hover { color: #ff6e6e; }
+    #node-action-bar button svg, #node-action-bar button svg * { pointer-events: none; }
     .action-bar-divider { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 
     /* Lock button: glyph mirrors node.locked, aria-pressed reflects state */

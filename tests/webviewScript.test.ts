@@ -41,6 +41,21 @@ describe('webview script integrity', () => {
     const html = canvasHtml(graph);
     expect(html).not.toContain('<script>alert(1)</script>\n');
   });
+
+  it('embeds the quick arrange toolbar with Lucide vector icons and buttons', () => {
+    const html = canvasHtml(parseMarkdownGraph('# Node A\n# Node B\n'));
+    expect(html).toContain('id="arrange-quick-bar"');
+    expect(html).toContain('data-type="square"');
+    expect(html).toContain('data-type="vertical"');
+    expect(html).toContain('data-type="horizontal"');
+    expect(html).toContain('data-sort="alpha-asc"');
+    expect(html).toContain('data-sort="alpha-desc"');
+    expect(html).toContain('id="arrange-gap-minus"');
+    expect(html).toContain('id="arrange-gap-plus"');
+    expect(html).toContain('id="arrange-bar-close"');
+    expect(html).toContain('function wireArrangeUi()');
+    expect(html).toContain('function applyArrange(');
+  });
 });
 
 describe('canvas markdown renderer', () => {

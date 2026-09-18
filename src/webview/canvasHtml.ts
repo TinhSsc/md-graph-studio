@@ -1,6 +1,7 @@
 import type { GraphDocument } from '../model/graphTypes';
 import { getCanvasActionBarStyles } from './canvasActionBarStyles';
 import { getCanvasContentStyles } from './canvasContentStyles';
+import { getCanvasArrangeStyles } from './canvasArrangeStyles';
 import { getCanvasDiagnosticsStyles } from './canvasDiagnosticsStyles';
 import { getCanvasFormatStyles } from './canvasFormatStyles';
 import { getCanvasNodeIdentityStyles } from './canvasNodeIdentityStyles';
@@ -13,6 +14,7 @@ export function canvasHtml(graph: GraphDocument): string {
   const styles =
     getCanvasStyles() +
     getCanvasActionBarStyles() +
+    getCanvasArrangeStyles() +
     getCanvasContentStyles() +
     getCanvasDiagnosticsStyles() +
     getCanvasNodeIdentityStyles() +

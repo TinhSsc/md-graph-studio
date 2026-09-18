@@ -112,8 +112,12 @@ export function getCanvasActionBarScript(): string {
       clearTimeout(hoverTimer);
       const overBar = target && ((actionBar && (target === actionBar || actionBar.contains(target))) || (imageMenu && (target === imageMenu || imageMenu.contains(target))));
       const overNode = target && typeof target.closest === 'function' && target.closest('.node');
-      if (!overBar && !overNode) hoverCandidate = null;
-      if (!overBar && actionBarSource === 'hover' && !overNode) { hideNodeActionBar(); }
+      if (!overBar && !overNode) {
+        hoverCandidate = null;
+        if (selectedNodeIds.size === 0) {
+          hideNodeActionBar();
+        }
+      }
     }
 
     document.addEventListener('pointerover', (event) => {
@@ -128,6 +132,28 @@ export function getCanvasActionBarScript(): string {
       cancelHoverActionBar(event.target);
     }, true);
 
+    document.addEventListener('mouseleave', () => {
+      clearTimeout(hoverTimer);
+      hoverCandidate = null;
+      if (selectedNodeIds.size === 0) {
+        hideNodeActionBar();
+      }
+    });
+
+    document.addEventListener('pointerdown', (event) => {
+      const inBar = actionBar && (event.target === actionBar || actionBar.contains(event.target));
+      const inMenu = imageMenu && (event.target === imageMenu || imageMenu.contains(event.target));
+      if (inBar || inMenu) return;
+      const nodeEl = event.target && event.target.closest ? event.target.closest('.node') : null;
+      if (!nodeEl) {
+        clearTimeout(hoverTimer);
+        hoverCandidate = null;
+        if (actionBarSource === 'hover' || selectedNodeIds.size === 0) {
+          hideNodeActionBar();
+        }
+      }
+    });
+
     if (actionBar) {
       actionBar.addEventListener('click', (event) => {
         const button = event.target && event.target.closest ? event.target.closest('button[data-action]') : null;
@@ -136,6 +162,8 @@ export function getCanvasActionBarScript(): string {
         const nodeId = actionBarNodeId;
         if (action === 'image') {
           toggleImageSubmenu();
+        } else if (action === 'close') {
+          hideNodeActionBar();
         } else if (action === 'link' || action === 'code' || action === 'tag' || action === 'delete') {
           openPopover(action, nodeId);
         } else if (action === 'task') {
@@ -189,9 +217,7 @@ export function getCanvasActionBarScript(): string {
       if (selectedNodeIds.size === 1) {
         actionBarSource = 'selection';
         updateNodeActionBar();
-      } else if (selectedNodeIds.size === 0 && actionBarSource === 'hover') {
-        updateNodeActionBar();
-      } else if (selectedNodeIds.size > 1) {
+      } else {
         hideNodeActionBar();
       }
     };
@@ -209,8 +235,14 @@ export function getCanvasActionBarScript(): string {
     const baseRender = render;
     render = function() {
       baseRender();
-      if (selectedNodeIds.size === 1) { actionBarSource = 'selection'; }
-      updateNodeActionBar();
+      if (selectedNodeIds.size === 1) {
+        actionBarSource = 'selection';
+        updateNodeActionBar();
+      } else if (selectedNodeIds.size === 0 && actionBarSource === 'hover' && hoverCandidate) {
+        updateNodeActionBar();
+      } else {
+        hideNodeActionBar();
+      }
     };
   `;
 }

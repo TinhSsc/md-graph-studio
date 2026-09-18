@@ -30,7 +30,7 @@ export const CANVAS_INTERACTION_CONFIG = {
     nodeContent: '.node-content',
     canvas: '#canvas',
     world: '#world',
-    overlays: ['#shortcuts-modal', '#editor-right', '#context-menu', '#node-popover', '#node-action-bar']
+    overlays: ['#shortcuts-modal', '#editor-right', '#context-menu', '#node-popover', '#node-action-bar', '#arrange-quick-bar']
   },
   buttons: {
     primary: 0,

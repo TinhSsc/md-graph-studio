@@ -3,7 +3,7 @@
   "displayName": "Markdown Graph Studio",
   "description": "Edit semantic Markdown graphs entirely inside VS Code.",
   "icon": "media/icon.png",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "publisher": "TinhSsc",
   "license": "MIT",
   "repository": {

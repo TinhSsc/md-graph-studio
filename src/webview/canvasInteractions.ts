@@ -319,6 +319,10 @@ export function getCanvasInteractionsScript(): string {
         '<div class="menu-item" id="ctx-fit">Fit to Screen (F)</div>' +
         '<div class="menu-item" id="ctx-reset-zoom">Reset Zoom 100%</div>';
 
+      if (selectedNodeIds.size > 1 && typeof buildArrangeContextMenuHtml === 'function') {
+        html += '<div class="menu-divider"></div>' + buildArrangeContextMenuHtml(selectedNodeIds.size);
+      }
+
       contextMenu.innerHTML = html;
       contextMenu.style.display = 'block';
       const menuRect = contextMenu.getBoundingClientRect();
@@ -346,6 +350,38 @@ export function getCanvasInteractionsScript(): string {
       if (undoBtn) undoBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'undo' }); };
       const redoBtn = document.querySelector('#ctx-redo');
       if (redoBtn) redoBtn.onclick = () => { closeContextMenu(); vscode.postMessage({ type: 'redo' }); };
+
+      if (selectedNodeIds.size > 1) {
+        const arrangeRoot = document.querySelector('#ctx-arrange-root');
+        if (arrangeRoot) {
+          arrangeRoot.onmouseenter = () => {
+            const sub = arrangeRoot.querySelector('.menu-submenu');
+            if (!sub) return;
+            const r = arrangeRoot.getBoundingClientRect();
+            if (r.right + 180 > window.innerWidth - 6) sub.classList.add('flip-left');
+            else sub.classList.remove('flip-left');
+            if (r.top + 200 > window.innerHeight - 6) sub.classList.add('flip-top');
+            else sub.classList.remove('flip-top');
+          };
+        }
+        document.querySelectorAll('#ctx-arrange-submenu [data-arrange]').forEach(item => {
+          item.onclick = (e) => {
+            e.stopPropagation();
+            closeContextMenu();
+            const type = item.dataset.arrange;
+            const sort = item.dataset.sort || 'none';
+            if (typeof applyArrange === 'function') applyArrange({ type, sort });
+          };
+        });
+        const openBarBtn = document.querySelector('#ctx-open-arrange-bar');
+        if (openBarBtn) {
+          openBarBtn.onclick = (e) => {
+            e.stopPropagation();
+            closeContextMenu();
+            if (typeof showArrangeQuickBar === 'function') showArrangeQuickBar();
+          };
+        }
+      }
 
       if (clickedNode) {
         wireNodeContextMenu(clickedNode, component);
@@ -771,6 +807,8 @@ export function getCanvasInteractionsScript(): string {
           inspectEmpty();
           closeContextMenu();
           shortcutsModal.classList.remove('visible');
+          if (typeof hideArrangeQuickBar === 'function') hideArrangeQuickBar();
+          if (typeof hideNodeActionBar === 'function') hideNodeActionBar();
         } else if (e.key === 'f' || e.key === 'F' || ((e.ctrlKey || e.metaKey) && e.key === '0')) {
           e.preventDefault();
           fitToView();
