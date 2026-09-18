@@ -3,13 +3,27 @@
   "displayName": "Markdown Graph Studio",
   "description": "Edit semantic Markdown graphs entirely inside VS Code.",
   "icon": "media/icon.png",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "local",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/TinhSsc/md-graph-studio.git"
   },
+  "bugs": {
+    "url": "https://github.com/TinhSsc/md-graph-studio/issues"
+  },
+  "homepage": "https://github.com/TinhSsc/md-graph-studio#readme",
+  "keywords": [
+    "markdown",
+    "graph",
+    "canvas",
+    "diagram",
+    "mindmap",
+    "visualization",
+    "flowchart",
+    "notes"
+  ],
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Visualization", "Other"],
   "activationEvents": ["onCommand:markdownGraphStudio.openAsGraph", "onCustomEditor:markdownGraphStudio.editor", "onView:markdownGraphStudio.canvases"],
