@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "nodes": {
+    "auth-service": {
+      "x": 100,
+      "y": 100,
+      "width": 240,
+      "height": 160,
+      "collapsed": false,
+      "locked": false
+    },
+    "database-service": {
+      "x": 450,
+      "y": 100,
+      "width": 240,
+      "height": 160,
+      "collapsed": false,
+      "locked": false
+    },
+    "audit-service": {
+      "x": 450,
+      "y": 320,
+      "width": 240,
+      "height": 160,
+      "collapsed": false,
+      "locked": false
+    }
+  },
+  "groups": {},
+  "edges": {
+    "auth-service>database-service#0": {
+      "source": { "kind": "node", "nodeId": "auth-service", "xRatio": 1, "yRatio": 0.5 },
+      "target": { "kind": "node", "nodeId": "database-service", "xRatio": 0, "yRatio": 0.5 },
+      "guide": { "axis": "x", "value": 345 }
+    }
+  },
+  "viewport": {
+    "x": 40,
+    "y": 30,
+    "zoom": 1.05
+  }
+}

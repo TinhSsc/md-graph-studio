@@ -1,0 +1,6 @@
+{
+  "version": 999,
+  "nodes": {
+    "broken": { "x": "INVALID_X", "y": null }
+  },
+  "syntaxError": [
