@@ -9,3 +9,4 @@ tsconfig.json
 esbuild.js
 package-lock.json
 *.vsix
+.github/**

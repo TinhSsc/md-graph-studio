@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+- **Quick Open Keyboard Shortcuts**: Open any Markdown graph instantly via <kbd>Ctrl+Alt+G</kbd> (<kbd>Cmd+Alt+G</kbd> on macOS) or side-by-side with <kbd>Ctrl+Alt+Shift+G</kbd>.
+- **File Explorer Context Menu**: Right-click any `.md` file in the VS Code file explorer to open directly in Graph Studio or Side by Side.
+- **Editor Title Bar Actions**: Quick switch between text editor and visual graph editor directly from the editor tab title bar.
+- **Editor Tab Context Menu**: Right-click open Markdown tabs to reveal Graph Studio options.
+
 ## 1.0.0 - First Production Release
 - **Production Readiness**: Full production-grade visual node-graph canvas editor for Markdown files in VS Code.
 - **Sidecar Storage**: Store graph coordinates and viewport state in `.md.graph.json` without modifying or polluting plain Markdown text.
