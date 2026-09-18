@@ -147,6 +147,8 @@ describe('collectGraphDiagnostics node icons', () => {
   it('stays silent for known, empty or missing icons', () => {
     expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode({ icon: 'book' })] }), sourceText)).toEqual([]);
     expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode({ icon: 'dollar-sign' })] }), sourceText)).toEqual([]);
+    expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode({ icon: 'layers' })] }), sourceText)).toEqual([]);
+    expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode({ icon: 'alert-octagon' })] }), sourceText)).toEqual([]);
     expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode({ icon: '' })] }), sourceText)).toEqual([]);
     expect(collectGraphDiagnostics(makeDocument({ nodes: [makeNode()] }), sourceText)).toEqual([]);
   });

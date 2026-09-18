@@ -18,6 +18,15 @@ export function getNodeThemeIcon(icon?: string): vscode.ThemeIcon {
     cpu: 'circuit-board',
     clock: 'history',
     settings: 'settings-gear',
+    layers: 'layers',
+    list: 'list-unordered',
+    'check-square': 'checklist',
+    play: 'play',
+    'user-check': 'pass-filled',
+    award: 'milestone',
+    'fast-forward': 'run-all',
+    'x-circle': 'error',
+    'alert-octagon': 'stop',
   };
   const codiconId = codiconMap[icon] || icon;
   return new vscode.ThemeIcon(codiconId);

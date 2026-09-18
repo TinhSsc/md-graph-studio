@@ -37,7 +37,7 @@ Detailed content of the node goes here...
 4. **State Flags**:
    - `locked=true`: Locks the position of fixed infrastructure nodes (e.g., database clusters).
    - `collapsed=true`: Collapses the node card body when containing lengthy documentation.
-5. **Custom Icon (`icon` attribute, optional)**: assigns a quick visual icon to the node header. Value must be one of the built-in icon ids (e.g. `book`, `database`, `server`, `cloud`, `user`, `users`, `shield`, `key`, `globe`, `mail`, `bell`, `star`, `flag`, `zap`, `settings`, `cpu`, `terminal`, `file-text`, `folder`, `image`, `link`, `git-branch`, `bug`, `alert-triangle`, `check-circle`, `clock`, `dollar-sign`). Unknown or missing ids use the neutral `file-text` icon:
+5. **Custom Icon (`icon` attribute, optional)**: assigns a quick visual icon to the node header. Value must be one of the built-in icon ids (e.g. `book`, `database`, `server`, `cloud`, `users`, `user`, `shield`, `key`, `globe`, `mail`, `bell`, `star`, `flag`, `zap`, `settings`, `cpu`, `terminal`, `file-text`, `folder`, `image`, `link`, `git-branch`, `bug`, `alert-triangle`, `check-circle`, `clock`, `dollar-sign`, `layers`, `list`, `check-square`, `play`, `user-check`, `award`, `fast-forward`, `x-circle`, `alert-octagon`). Unknown or missing ids use the neutral `file-text` icon:
    ```markdown
    <!-- graph-node: shape=rectangle; color=blue; icon=database -->
    ```

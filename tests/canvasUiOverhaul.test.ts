@@ -12,7 +12,8 @@ const CONTRACT_ICON_IDS = [
   'book', 'database', 'server', 'cloud', 'users', 'user', 'shield', 'key', 'globe',
   'mail', 'bell', 'star', 'flag', 'zap', 'settings', 'cpu', 'terminal', 'file-text',
   'folder', 'image', 'link', 'git-branch', 'bug', 'alert-triangle', 'check-circle',
-  'clock', 'dollar-sign'
+  'clock', 'dollar-sign', 'layers', 'list', 'check-square', 'play', 'user-check',
+  'award', 'fast-forward', 'x-circle', 'alert-octagon'
 ];
 
 function extractScript(html: string): string {
@@ -135,8 +136,8 @@ describe('canvas UI overhaul: standalone script modules', () => {
 });
 
 describe('canvas UI overhaul: node icon contract', () => {
-  it('ships exactly the 27 contract icon ids with SVG bodies', () => {
-    expect(nodeIconIds).toHaveLength(27);
+  it('ships exactly the 36 contract icon ids with SVG bodies', () => {
+    expect(nodeIconIds).toHaveLength(36);
     expect([...nodeIconIds].sort()).toEqual([...CONTRACT_ICON_IDS].sort());
     for (const id of CONTRACT_ICON_IDS) {
       expect(nodeIconSvgs[id]).toContain('<svg');

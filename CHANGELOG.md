@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+- **Node Icon Catalog Expansion**:
+  - Added 9 new built-in node icons with Lucide SVG vectors: `layers`, `list`, `check-square`, `play`, `user-check`, `award`, `fast-forward`, `x-circle`, and `alert-octagon` (expanding the catalog from 27 to 36 icons).
+  - Resolved `MGS-W-003: Unknown node icon` warnings for nodes using these identifiers.
+  - Added Codicon mapping for sidebar node outline search and updated AI documentation instructions.
+
 ## 1.2.0
 - **Multi-Node Auto Arrange (Grid, Vertical, Horizontal, Sort A-Z & Z-A)**:
   - Added new **Arrange** submenu in the canvas context menu when multiple nodes are selected.

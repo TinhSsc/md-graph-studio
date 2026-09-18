@@ -7,10 +7,13 @@ const PLAIN_COMMENT = '<!-- graph-node: shape=rectangle; color=blue; collapsed=f
 const ICON_COMMENT = '<!-- graph-node: shape=rectangle; color=blue; collapsed=false; locked=false; icon=book -->';
 
 describe('node icon catalog', () => {
-  it('exposes the canonical 27 icon ids without duplicates', () => {
-    expect(nodeIconIds).toHaveLength(27);
-    expect(new Set(nodeIconIds).size).toBe(27);
-    for (const id of ['book', 'database', 'alert-triangle', 'check-circle', 'git-branch', 'dollar-sign']) {
+  it('exposes the canonical 36 icon ids without duplicates', () => {
+    expect(nodeIconIds).toHaveLength(36);
+    expect(new Set(nodeIconIds).size).toBe(36);
+    for (const id of [
+      'book', 'database', 'alert-triangle', 'check-circle', 'git-branch', 'dollar-sign',
+      'layers', 'list', 'check-square', 'play', 'user-check', 'award', 'fast-forward', 'x-circle', 'alert-octagon'
+    ]) {
       expect(nodeIconIds).toContain(id);
     }
   });
@@ -21,6 +24,8 @@ describe('node icon catalog', () => {
       expect(nodeIconLabels[id].length).toBeGreaterThan(0);
     }
     expect(nodeIconLabels['alert-triangle']).toBe('Warning');
+    expect(nodeIconLabels['layers']).toBe('Layers / Stack');
+    expect(nodeIconLabels['alert-octagon']).toBe('Alert Octagon / Stop');
   });
 });
 

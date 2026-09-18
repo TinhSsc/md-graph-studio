@@ -2,7 +2,8 @@ export const nodeIconIds: readonly string[] = [
   'book', 'database', 'server', 'cloud', 'users', 'user', 'shield', 'key', 'globe',
   'mail', 'bell', 'star', 'flag', 'zap', 'settings', 'cpu', 'terminal', 'file-text',
   'folder', 'image', 'link', 'git-branch', 'bug', 'alert-triangle', 'check-circle',
-  'clock', 'dollar-sign',
+  'clock', 'dollar-sign', 'layers', 'list', 'check-square', 'play', 'user-check',
+  'award', 'fast-forward', 'x-circle', 'alert-octagon',
 ];
 
 export const nodeIconLabels: Record<string, string> = {
@@ -33,4 +34,13 @@ export const nodeIconLabels: Record<string, string> = {
   'check-circle': 'Check / Done',
   clock: 'Clock / Time',
   'dollar-sign': 'Cost / Money',
+  layers: 'Layers / Stack',
+  list: 'List / Items',
+  'check-square': 'Check Square / Task',
+  play: 'Play / Start',
+  'user-check': 'User Check / Verified',
+  award: 'Award / Badge',
+  'fast-forward': 'Fast Forward / Speed',
+  'x-circle': 'X Circle / Reject',
+  'alert-octagon': 'Alert Octagon / Stop',
 };
