@@ -7,6 +7,14 @@ Visual node-graph editor and interactive diagram workspace for Markdown document
 [![Build Status](https://img.shields.io/badge/tests-338%20passed-brightgreen.svg)](#)
 
 <p align="center">
+  <img src="docs/preview.png" alt="Markdown Graph Studio Workspace Preview" width="100%" />
+</p>
+
+---
+
+## Interactive Walkthrough Demo
+
+<p align="center">
   <img src="docs/demo.gif" alt="Markdown Graph Studio Demo" width="100%" />
 </p>
 
